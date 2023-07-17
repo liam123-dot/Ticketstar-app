@@ -64,3 +64,10 @@ yarn-error.log
 
 # testing
 /coverage
+
+.env
+/ios
+/android
+/.bundle
+/node_modules
+/vendor
