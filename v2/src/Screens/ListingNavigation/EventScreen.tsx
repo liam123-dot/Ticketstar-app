@@ -1,7 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {
   Alert,
-  Button,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -9,9 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
-import { API_URL_PROD, API_URL_LOCAL } from '@env'
+import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {formatTimes} from '../../utilities';
 
 function ListItem({object, onSelect, isSelected}) {
   return (
@@ -50,10 +49,10 @@ function ListContainer({title, objects, onSelectTicket, selectedTicketId}) {
   );
 }
 
-function EventScreen({route}) {
-  const {fixr_id, name, image_url, venue} = route.params;
+function EventScreen({route, navigation}) {
+  const {fixr_id, name, image_url, venue, open_time, close_time} = route.params;
 
-  const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+  let apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,128 +60,133 @@ function EventScreen({route}) {
   const [eventData, setEventData] = useState(null);
   const [ticketData, setTicketData] = useState(null);
 
-  const [selectedTicketId, setSelectedTicketId] = useState(null)
+  const [selectedTicketId, setSelectedTicketId] = useState(null);
 
-  const [currentUserId, setCurrentUserId] = useState(null)
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const [buyButtonTitle, setBuyButtonTitle] = useState(
-      "Buy - No Ticket Selected"
-  )
+    'Buy - No Ticket Selected',
+  );
   const [buyButtonDisabled, setBuyButtonDisabled] = useState(true);
   const [cheapest, setCheapest] = useState(null);
   const [askId, setAskId] = useState(null);
   const [price, setPrice] = useState(null);
 
   const handleBuyPress = () => {
-
     const navigate = async () => {
-
-      const response = await fetch(apiUrl + "/listings/reserve", {
-        method: "POST",
+      const response = await fetch(apiUrl + '/listings/reserve', {
+        method: 'POST',
         body: JSON.stringify({
-          'user_id': currentUserId,
-          'ask_id': askId,
-          'price': price
-        })
-      })
+          user_id: currentUserId,
+          ask_id: askId,
+          price: price,
+        }),
+      });
 
-      console.log(response.status)
-
-    }
+      if (response.status == 400) {
+        fetchData();
+        setSelectedTicketId(null);
+      }
+    };
 
     if (!cheapest) {
       Alert.alert(
-          'You are selling this ticket for a lower price',
-          'Are you sure you want to continue',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            {text: 'Yes', onPress: () => navigate()},
-          ],
+        'You are selling this ticket for a lower price',
+        'Are you sure you want to continue',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {text: 'Yes', onPress: () => navigate()},
+        ],
       );
     } else {
       navigate();
     }
-
-  }
+  };
 
   const handleSellPress = () => {
-
-  }
+    console.log(ticketData);
+    navigation.navigate('Post Ask', {
+      fixr_ticket_id: ticketData[selectedTicketId].fixr_id,
+      fixr_event_id: eventData.id,
+      ticket_name: ticketData[selectedTicketId].name,
+      event_name: eventData.name,
+      // Pass the selected ask data
+    });
+  };
 
   const initializeData = async () => {
-    const userIdFromStorage = await AsyncStorage.getItem('user_id')
+    const userIdFromStorage = await AsyncStorage.getItem('user_id');
     setCurrentUserId(userIdFromStorage);
     await fetchData();
-  }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
-    const response = await fetch(apiUrl + `/search/event/${fixr_id}?user_id=${currentUserId}`, {
-      method: 'GET'
-    });
+    const response = await fetch(
+      apiUrl + `/search/event/${fixr_id}?user_id=${currentUserId}`,
+      {
+        method: 'GET',
+      },
+    );
 
-    const event_data = await response.json()
+    const event_data = await response.json();
     setEventData(event_data);
-    console.log(event_data)
 
-    let tickets = {}
+    let tickets = {};
 
     if (event_data.tickets) {
-
       event_data.tickets.forEach(function (ticket) {
-
         let ticket_info = ticket;
         tickets[ticket.id] = ticket_info;
+      });
 
-      })
-
-      setTicketData(tickets)
-
+      setTicketData(tickets);
     }
 
     setIsLoading(false);
-
-  }
+    resetValues();
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setSelectedTicketId(null);
     await fetchData();
     setRefreshing(false);
-  }
+  };
 
   useEffect(() => {
     initializeData();
-  }, [])
+  }, []);
 
   useEffect(() => {
+    if (ticketData) {
+      if (ticketData[selectedTicketId]) {
+        if (ticketData[selectedTicketId].listing) {
+          const listing = ticketData[selectedTicketId].listing;
+          const price = listing.ask_price;
 
-    if (ticketData){
-      if (ticketData[selectedTicketId].listing) {
-
-        const listing = ticketData[selectedTicketId].listing;
-        const price = listing.ask_price
-
-        setBuyButtonTitle(`Buy - £${price}`)
-        setBuyButtonDisabled(false);
-        setCheapest(listing.cheapest);
-        setAskId(listing.ask_id)
-        setPrice(price)
-
-      } else {
-
-        setBuyButtonTitle(`No Tickets Available`)
-        setBuyButtonDisabled(true);
-        setCheapest(null)
-        setAskId(null);
-        setPrice(null)
-
+          setBuyButtonTitle(`Buy - £${price}`);
+          setBuyButtonDisabled(false);
+          setCheapest(listing.cheapest);
+          setAskId(listing.ask_id);
+          setPrice(price);
+        } else {
+          resetValues();
+        }
       }
     }
+  }, [selectedTicketId]);
 
-  }, [selectedTicketId])
+  const resetValues = () => {
+    setBuyButtonTitle('No Tickets Available');
+    setBuyButtonDisabled(true);
+    setCheapest(null);
+    setAskId(null);
+    setPrice(null);
+  };
 
   return (
     <View style={styles.screen}>
@@ -196,6 +200,10 @@ function EventScreen({route}) {
         ) : (
           <>
             <Text style={styles.title}>{name}</Text>
+            <Text style={styles.timeText}>
+              {formatTimes(open_time, close_time)}
+            </Text>
+            <Text style={styles.venueText}>{venue}</Text>
             <ListContainer
               title="Tickets"
               objects={eventData?.tickets}
@@ -240,7 +248,7 @@ function CustomButton({title, onPress, color, disabled}) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fafafa',
   },
   container: {
     flex: 1,
@@ -248,7 +256,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: 'bold',
-    fontSize: 28,
+    fontSize: 30,
+    color: '#4a4a4a',
     marginBottom: 20,
   },
   actionBar: {
@@ -256,7 +265,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderTopWidth: 1,
     borderTopColor: '#ddd',
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
   },
   customButton: {
     flex: 1,
@@ -274,16 +283,16 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontWeight: 'bold',
-    fontSize: 16,
-    color: 'white',
+    fontSize: 18,
+    color: '#fff',
   },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: '#fff',
     borderColor: '#ddd',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     marginVertical: 5,
     padding: 15,
     shadowColor: '#000',
@@ -294,24 +303,40 @@ const styles = StyleSheet.create({
   },
   selectedListItem: {
     borderColor: '#3f51b5',
+    backgroundColor: '#f5f5f5',
   },
   listItemTextContainer: {
     flex: 1,
   },
   text: {
     margin: 3,
-    fontSize: 16,
+    fontSize: 18,
+    color: '#4a4a4a',
   },
   price: {
     fontWeight: 'bold',
     alignSelf: 'flex-end',
+    color: '#3f51b5',
   },
   listContainer: {
     marginVertical: 10,
   },
   listTitle: {
     fontWeight: 'bold',
-    fontSize: 22,
+    fontSize: 24,
+    color: '#3f51b5',
+    marginBottom: 10,
+  },
+  timeText: {
+    fontSize: 18,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 10,
+  },
+  venueText: {
+    fontSize: 20,
+    color: '#333',
+    fontWeight: 'bold',
     marginBottom: 10,
   },
 });

@@ -72,8 +72,6 @@ function VorganiserScreen({ route }) {
       .catch(error => console.error('Error fetching data:', error));
   }, [title, slug]);
 
-  console.log(events)
-
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.screenTitle}>{name}</Text>

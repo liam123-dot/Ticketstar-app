@@ -11,10 +11,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused} from '@react-navigation/native';
+import {API_URL_PROD, API_URL_LOCAL} from '@env';
 
 function MyPurchasesScreen() {
   const [purchases, setPurchases] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -25,10 +28,11 @@ function MyPurchasesScreen() {
   const fetchData = async () => {
     const user_id = await AsyncStorage.getItem('user_id');
 
-    fetch(`http://127.0.0.1:3000/Purchases?user_id=${user_id}`, {
+    fetch(`${apiUrl}/purchases`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': user_id,
       },
     })
       .then(async response => {
@@ -41,6 +45,7 @@ function MyPurchasesScreen() {
         return response.json();
       })
       .then(data => {
+        data = data.info;
         const expandedData = Object.keys(data).map(eventId => ({
           ...data[eventId],
           isExpanded: false,
@@ -136,9 +141,7 @@ function MyPurchasesScreen() {
                                     Transfer Link
                                   </Text>
                                 ) : (
-                                  <Text>
-                                    Ticket has been transferred.
-                                  </Text>
+                                  <Text>Ticket has been transferred.</Text>
                                 )}
                               </Text>
                             </View>

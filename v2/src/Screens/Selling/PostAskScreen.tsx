@@ -8,8 +8,10 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import {API_URL_PROD, API_URL_LOCAL} from '@env';
+import { CommonActions } from "@react-navigation/native";
 function PostAskScreen({navigation, route}) {
+
   const {
     fixr_ticket_id,
     fixr_event_id,
@@ -24,7 +26,8 @@ function PostAskScreen({navigation, route}) {
   const [ticketVerified, setTicketVerified] = useState(ticket_verified);
   const [price, setPrice] = useState('');
   const [userId, setUserId] = useState(null);
-  const [real_ticket_id, setReal_ticket_id] = useState(null);
+
+  const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
   useEffect(() => {
     const getUserId = async () => {
@@ -36,120 +39,96 @@ function PostAskScreen({navigation, route}) {
     getUserId();
   }, []);
 
-  const handleVerifyTransferUrl = () => {
-    fetch('http://127.0.0.1:3000/VerifyTicketTransferUrl', {
+  const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
+
+  const verifyTransferUrl = async () => {
+    console.log(`${fixr_event_id} ${fixr_ticket_id}`);
+    const response = await fetch(apiUrl + '/transfers/verifyurl', {
       method: 'POST',
       body: JSON.stringify({
         transfer_url: transferUrl,
-        fixr_ticket_id: fixr_ticket_id,
         fixr_event_id: fixr_event_id,
-        user_id: userId,
+        fixr_ticket_id: fixr_ticket_id,
       }),
-    })
-      .then(async response => {
-        if (response.ok) {
-          // 2xx status code, verification successful
-          setTicketVerified(true);
+    });
 
-          let data = await response.json();
-
-          console.log(data);
-
-          setReal_ticket_id(data.real_ticket_id);
-
-          Alert.alert(
-            'Verification Successful',
-            'Your transfer URL has been successfully verified!',
-          );
-        } else {
-          let data = await response.json()
-          console.log(data)
-          // Non-2xx status code, verification failed
-          Alert.alert(
-            'Verification Failed',
-            'The provided transfer URL could not be verified. Please check it and try again.',
-          );
-        }
-      })
-      .catch(error => {
-        // Handle network errors
-        console.error('Error:', error);
-        Alert.alert(
-          'Error',
-          'An error occurred while verifying the transfer URL. Please try again.',
-        );
-      });
+    if (response.status === 200) {
+      setTicketVerified(true);
+    } else {
+      const data = await response.json();
+      console.log(data);
+    }
   };
 
   const handleSubmit = async () => {
-    // Logic for submitting the data
 
-    const user_id = await AsyncStorage.getItem('user_id');
-    console.log(real_ticket_id);
+    let response;
 
-    fetch('http://127.0.0.1:3000/Asks', {
-      method: ticket_verified ? 'PUT' : 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: ticket_verified
-        ? JSON.stringify({
-            user_id,
-            price,
-            ask_id,
-          })
-        : JSON.stringify({
-            user_id,
-            price,
-            fixr_ticket_id,
-            fixr_event_id,
-            real_ticket_id,
-          }),
-    })
-      .then(response => {
-        // Check if the status code is in the 2xx range
-        if (response.ok) {
-          return response.json();
-        } else {
-          // First read the response body, then throw an error
-          return response.json().then(errorBody => {
-            throw new Error(
-              `Server responded with a status of ${
-                response.status
-              } with error ${JSON.stringify(errorBody)}`,
-            );
-          });
-        }
-      })
-      .then(data => {
-        // Handle the response data for 2xx status code
-
-        console.log('Success:', data);
-
-        navigation.navigate('Search');
-      })
-      .catch(error => {
-        // Handle errors (this could be network errors or non-2xx status codes)
-        console.error('Error:', error);
+    if (ticket_verified){
+      response = await fetch(apiUrl + '/listing', {
+        method: 'PUT',
+        body: JSON.stringify({
+          ask_id: ask_id,
+          price: price,
+        }),
       });
+
+    } else {
+      response = await fetch(apiUrl + '/listing', {
+        method: 'POST',
+        body: JSON.stringify({
+          fixr_ticket_id: fixr_ticket_id,
+          fixr_event_id: fixr_event_id,
+          transfer_url: transferUrl,
+          price: price,
+          user_id: userId,
+        }),
+      });
+    }
+
+    if (response.status === 200) {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            { name: 'MyListings' },
+          ],
+        })
+      );
+    } else {
+      const data = await response.json();
+      console.log(data);
+    }
   };
 
   const handleDelete = async () => {
-    fetch('http://127.0.0.1:3000/Asks', {
+
+    const response = await fetch(apiUrl + '/listing', {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
-        ask_id,
+        ask_id: ask_id,
       }),
-    }).then(response => {
-      if (response.ok) {
-        Alert.alert('Listing successfully deleted');
-        navigation.navigate('MyListings');
-      }
     });
+
+    if (response.status !== 200){
+      const data = await response.json();
+      console.error(data);
+    } else {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            { name: 'MyListings' },
+          ],
+        })
+      );
+    }
+
   };
+
+  function isNumber(n: any): boolean {
+    return !isNaN(parseFloat(n)) && !isNaN(n - 0);
+  }
 
   return (
     <View style={styles.container}>
@@ -168,21 +147,22 @@ function PostAskScreen({navigation, route}) {
             placeholderTextColor="#888"
             value={transferUrl}
             onChangeText={setTransferUrl}
+            editable={!ticketVerified}
           />
 
           <TouchableOpacity
             style={[
               styles.button,
               styles.verifyButton,
-              {backgroundColor: ticketVerified ? '#4CAF50' : '#3f51b5'},
+              {
+                backgroundColor: urlRegex.test(transferUrl)
+                  ? '#3f51b5'
+                  : 'lightgrey',
+              },
             ]}
-            onPress={handleVerifyTransferUrl}
-            disabled={ticketVerified}>
-            <Text
-              style={[
-                styles.buttonText,
-                {color: ticketVerified ? 'white' : 'white'},
-              ]}>
+            onPress={verifyTransferUrl}
+            disabled={!urlRegex.test(transferUrl) || ticketVerified}>
+            <Text style={[styles.buttonText, {color: 'white'}]}>
               {ticketVerified ? 'Verified!' : 'Verify'}
             </Text>
           </TouchableOpacity>
@@ -192,7 +172,7 @@ function PostAskScreen({navigation, route}) {
             onPress={() =>
               Alert.alert(
                 'Verify Ticket Ownership',
-                'Enter the transfer url for the event, we will use our accounts to verify it. If you cancel your sale you can easily receive a link to reclaim your ticket.',
+                'Enter the transfer url for the event so we can verify its validity',
               )
             }>
             <Text style={styles.infoButtonText}>?</Text>
@@ -215,17 +195,21 @@ function PostAskScreen({navigation, route}) {
         style={[
           styles.button,
           styles.submitButton,
-          {backgroundColor: ticketVerified ? '#4CAF50' : 'lightgrey'},
+          {
+            backgroundColor:
+              ticketVerified && isNumber(price) ? '#4CAF50' : 'lightgrey',
+          },
         ]}
         onPress={handleSubmit}
-        disabled={!ticketVerified}>
+        disabled={!ticketVerified || !isNumber(price)}>
         <Text style={[styles.buttonText, styles.submitButtonText]}>Submit</Text>
       </TouchableOpacity>
 
       {ticket_verified ? (
         <TouchableOpacity
           style={[styles.button, styles.deleteButton]}
-          onPress={handleDelete}>
+          onPress={handleDelete}
+        >
           <Text style={[styles.buttonText, styles.deleteButtonText]}>
             Delete
           </Text>

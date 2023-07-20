@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
+import {formatTimes} from '../../utilities';
+import {API_URL_PROD, API_URL_LOCAL} from '@env';
 
 function AmendButton({
   fixr_ticket_id,
@@ -46,32 +48,66 @@ function AmendButton({
 function MyListingsScreen() {
   const [listings, setListings] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const RelistButton = ({
+    ask_id,
+  }) => {
+    const handlePress = async () => {
+      // Your fetch call here
+      const response = await fetch(`${apiUrl}/listing/relist`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ask_id: ask_id,
+        }),
+      });
+
+      if (response.status === 200){
+
+        fetchData();
+
+      }
+
+    };
+
+    return (
+      <TouchableOpacity onPress={handlePress} style={styles.relistButton}>
+        <Text style={styles.relistButtonText}>Re-list</Text>
+      </TouchableOpacity>
+    );
+  };
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchData();
     setRefreshing(false);
   };
 
+  const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+
   const fetchData = async () => {
     const user_id = await AsyncStorage.getItem('user_id');
 
-    fetch(`http://127.0.0.1:3000/Asks?user_id=${user_id}`, {
+    fetch(`${apiUrl}/listing?filter=unsold`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: user_id,
       },
     })
       .then(response => response.json())
       .then(data => {
-        const expandedData = Object.keys(data).map(eventId => ({
-          ...data[eventId],
-          isExpanded: false,
-          tickets: Object.keys(data[eventId].tickets).map(ticketId => ({
-            ...data[eventId].tickets[ticketId],
+        data = data.info;
+        if (data != null) {
+          const expandedData = Object.keys(data).map(eventId => ({
+            ...data[eventId],
             isExpanded: false,
-          })),
-        }));
-        setListings(expandedData);
+            tickets: Object.keys(data[eventId].tickets).map(ticketId => ({
+              ...data[eventId].tickets[ticketId],
+              isExpanded: false,
+            })),
+          }));
+          setListings(expandedData);
+        }
       })
       .catch(error => {
         console.error('Error: ', error);
@@ -115,6 +151,9 @@ function MyListingsScreen() {
               onPress={() => toggleEventExpanded(eventIndex)}>
               <View style={styles.listItemTextContainer}>
                 <Text style={styles.listItemTitle}>{event.event_name}</Text>
+                <Text>
+                  {formatTimes(event.open_time * 1000, event.close_time * 1000)}
+                </Text>
               </View>
               <Image
                 source={{uri: event.image_url}}
@@ -135,27 +174,37 @@ function MyListingsScreen() {
                   </TouchableOpacity>
 
                   {ticket.isExpanded &&
-                    Object.keys(ticket.asks).map((askId, askIndex) => (
+                    Object.keys(ticket.listings).map((askId, askIndex) => (
                       <View key={askIndex} style={styles.subSubListItem}>
                         <View style={styles.subSubListItemTextContainer}>
                           <Text style={styles.subSubListItemText}>
-                            Price: £{ticket.asks[askId].price}
+                            Price: £{ticket.listings[askId].price}
                           </Text>
                           <Text style={styles.subSubListItemDescription}>
-                            {ticket.asks[askId].fulfilled ? 'Sold' : 'Not Sold'}
+                            {ticket.listings[askId].listed
+                              ? ticket.listings[askId].fulfilled
+                                ? 'Sold'
+                                : 'Not Sold'
+                              : 'Not Listed'}
                           </Text>
                         </View>
 
-                        {ticket.asks[askId].fulfilled ? (
+                        {ticket.listings[askId].fulfilled ? (
                           <></>
-                        ) : (
+                        ) : ticket.listings[askId].listed ? (
                           <AmendButton
-                            ask_id={askId}
+                            ask_id={ticket.listings[askId].ask_id}
                             event_name={event.event_name}
                             ticket_name={ticket.ticket_name}
-                            fixr_event_id={ticket.asks[askId].fixr_event_id}
-                            fixr_ticket_id={ticket.asks[askId].fixr_ticket_id}
-                            current_price={ticket.asks[askId].price}
+                            fixr_event_id={ticket.listings[askId].fixr_event_id}
+                            fixr_ticket_id={
+                              ticket.listings[askId].fixr_ticket_id
+                            }
+                            current_price={ticket.listings[askId].price}
+                          />
+                        ) : (
+                          <RelistButton
+                            ask_id={ticket.listings[askId].ask_id}
                           />
                         )}
                       </View>
@@ -295,6 +344,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333333',
     textAlign: 'center',
+  },
+  relistButton: {
+    backgroundColor: '#ff9800', // You can change this to any color you like
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    marginHorizontal: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  relistButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 18,
   },
 });
 
