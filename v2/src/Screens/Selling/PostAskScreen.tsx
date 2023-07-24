@@ -9,9 +9,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import { CommonActions } from "@react-navigation/native";
+import {CommonActions} from '@react-navigation/native';
 function PostAskScreen({navigation, route}) {
-
   const {
     fixr_ticket_id,
     fixr_event_id,
@@ -20,12 +19,16 @@ function PostAskScreen({navigation, route}) {
     ticket_verified,
     ask_id,
     current_price,
+    reserve_timeout,
   } = route.params;
 
   const [transferUrl, setTransferUrl] = useState('');
   const [ticketVerified, setTicketVerified] = useState(ticket_verified);
   const [price, setPrice] = useState('');
   const [userId, setUserId] = useState(null);
+
+  const [countdownTime, setCountdownTime] = useState(reserve_timeout - Math.floor(Date.now() / 1000));
+  const [countdownActive, setCountdownActive] = useState(false);
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
@@ -38,6 +41,33 @@ function PostAskScreen({navigation, route}) {
 
     getUserId();
   }, []);
+
+  useEffect(() => {
+    if (ticket_verified) {
+      setCountdownActive(true);
+    }
+  }, [ticket_verified]);
+
+  useEffect(() => {
+    let intervalId;
+
+    if (countdownActive && countdownTime > 0) {
+      intervalId = setInterval(() => {
+        setCountdownTime(prevTime => prevTime - 1);
+      }, 1000);
+    } else if (countdownActive && countdownTime <= 0) {
+      navigation.goBack();
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    }
+  }, [countdownActive, countdownTime]);
+
+  const countdownMin = Math.floor(countdownTime / 60);
+  const countdownSec = countdownTime % 60;
 
   const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
 
@@ -55,16 +85,16 @@ function PostAskScreen({navigation, route}) {
     if (response.status === 200) {
       setTicketVerified(true);
     } else {
+      Alert.alert("Invalid transfer url for this event")
       const data = await response.json();
       console.log(data);
     }
   };
 
   const handleSubmit = async () => {
-
     let response;
 
-    if (ticket_verified){
+    if (ticket_verified) {
       response = await fetch(apiUrl + '/listing', {
         method: 'PUT',
         body: JSON.stringify({
@@ -72,7 +102,6 @@ function PostAskScreen({navigation, route}) {
           price: price,
         }),
       });
-
     } else {
       response = await fetch(apiUrl + '/listing', {
         method: 'POST',
@@ -86,23 +115,24 @@ function PostAskScreen({navigation, route}) {
       });
     }
 
-    if (response.status === 200) {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [
-            { name: 'MyListings' },
-          ],
-        })
-      );
+    if (response.ok) {
+      Alert.alert('Listing successfully posted');
+      navigation.goBack();
+      navigation.navigate("MyListings")
     } else {
-      const data = await response.json();
-      console.log(data);
+      try {
+        const data = await response.json();
+        if (data.reason === 'TransferURL'){
+          Alert.alert(data.message);
+          setTicketVerified(false);
+        }
+      } catch (e) {
+        console.log('Error parsing response', e);
+      }
     }
   };
 
   const handleDelete = async () => {
-
     const response = await fetch(apiUrl + '/listing', {
       method: 'DELETE',
       body: JSON.stringify({
@@ -110,20 +140,17 @@ function PostAskScreen({navigation, route}) {
       }),
     });
 
-    if (response.status !== 200){
+    if (response.status !== 200) {
       const data = await response.json();
       console.error(data);
     } else {
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [
-            { name: 'MyListings' },
-          ],
-        })
+          routes: [{name: 'MyListings'}],
+        }),
       );
     }
-
   };
 
   function isNumber(n: any): boolean {
@@ -138,6 +165,7 @@ function PostAskScreen({navigation, route}) {
       {ticket_verified ? (
         <Text style={styles.currentPriceText}>
           Current price: £{current_price}
+          Time to edit: {countdownMin}:{countdownSec < 10 ? '0' : ''}{countdownSec}
         </Text>
       ) : (
         <View style={styles.inputContainer}>
@@ -172,7 +200,7 @@ function PostAskScreen({navigation, route}) {
             onPress={() =>
               Alert.alert(
                 'Verify Ticket Ownership',
-                'Enter the transfer url for the event so we can verify its validity',
+                'Enter the transfer url for the event so we can verify its validity, once you press submit we will take the ticket into our account. You can easily reclaim ticket from listings page if you change your mind.',
               )
             }>
             <Text style={styles.infoButtonText}>?</Text>
@@ -208,8 +236,7 @@ function PostAskScreen({navigation, route}) {
       {ticket_verified ? (
         <TouchableOpacity
           style={[styles.button, styles.deleteButton]}
-          onPress={handleDelete}
-        >
+          onPress={handleDelete}>
           <Text style={[styles.buttonText, styles.deleteButtonText]}>
             Delete
           </Text>

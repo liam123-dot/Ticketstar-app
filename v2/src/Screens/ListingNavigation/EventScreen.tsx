@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect, useContext } from "react";
 import {
   Alert,
   RefreshControl,
@@ -11,6 +11,7 @@ import {
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {formatTimes} from '../../utilities';
+import {useStripe} from '@stripe/stripe-react-native';
 
 function ListItem({object, onSelect, isSelected}) {
   return (
@@ -50,7 +51,9 @@ function ListContainer({title, objects, onSelectTicket, selectedTicketId}) {
 }
 
 function EventScreen({route, navigation}) {
-  const {fixr_id, name, image_url, venue, open_time, close_time} = route.params;
+  const {fixr_id, name, image_url, venue, open_time, close_time, user_id} =
+    route.params;
+  const {initPaymentSheet, presentPaymentSheet} = useStripe();
 
   let apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
@@ -62,8 +65,6 @@ function EventScreen({route, navigation}) {
 
   const [selectedTicketId, setSelectedTicketId] = useState(null);
 
-  const [currentUserId, setCurrentUserId] = useState(null);
-
   const [buyButtonTitle, setBuyButtonTitle] = useState(
     'Buy - No Ticket Selected',
   );
@@ -72,20 +73,29 @@ function EventScreen({route, navigation}) {
   const [askId, setAskId] = useState(null);
   const [price, setPrice] = useState(null);
 
+  const generatePaymentSheet = async () => {
+    await initializePaymentSheet();
+    await openPaymentSheet();
+  };
+
   const handleBuyPress = () => {
+
     const navigate = async () => {
       const response = await fetch(apiUrl + '/listings/reserve', {
         method: 'POST',
         body: JSON.stringify({
-          user_id: currentUserId,
+          user_id: user_id,
           ask_id: askId,
           price: price,
         }),
       });
 
-      if (response.status == 400) {
+      if (response.status === 400) {
         fetchData();
         setSelectedTicketId(null);
+        Alert.alert('Ask no longer available');
+      } else if (response.status === 200) {
+        generatePaymentSheet();
       }
     };
 
@@ -106,45 +116,68 @@ function EventScreen({route, navigation}) {
     }
   };
 
+  const initializePaymentSheet = async () => {
+    const {paymentIntent, ephemeralKey, customer, publishableKey} =
+      await fetchPaymentSheetParams();
+
+    const {error} = await initPaymentSheet({
+      merchantDisplayName: 'Ticketstar',
+      customerId: customer,
+      customerEphemeralKeySecret: ephemeralKey,
+      paymentIntentClientSecret: paymentIntent,
+      // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
+      //methods that complete payment after a delay, like SEPA Debit and Sofort.
+      allowsDelayedPaymentMethods: true,
+      defaultBillingDetails: {
+        name: 'Jane Doe',
+      },
+    });
+    if (!error) {
+      // setIsLoading(true);
+    }
+  };
+
   const handleSellPress = () => {
-    console.log(ticketData);
     navigation.navigate('Post Ask', {
-      fixr_ticket_id: ticketData[selectedTicketId].fixr_id,
-      fixr_event_id: eventData.id,
+      fixr_ticket_id: ticketData[selectedTicketId].fixr_ticket_id,
+      fixr_event_id: eventData.fixr_event_id,
       ticket_name: ticketData[selectedTicketId].name,
-      event_name: eventData.name,
+      event_name: name,
       // Pass the selected ask data
     });
   };
 
   const initializeData = async () => {
-    const userIdFromStorage = await AsyncStorage.getItem('user_id');
-    setCurrentUserId(userIdFromStorage);
     await fetchData();
   };
 
   const fetchData = async () => {
     setIsLoading(true);
-    const response = await fetch(
-      apiUrl + `/search/event/${fixr_id}?user_id=${currentUserId}`,
-      {
-        method: 'GET',
-      },
-    );
+    try {
+      const response = await fetch(apiUrl + `/search/event/${fixr_id}?user_id=${user_id}`, { method: 'GET' });
+      const event_data = await response.json();
+      setEventData(event_data);
 
-    const event_data = await response.json();
-    setEventData(event_data);
+      let tickets = {};
 
-    let tickets = {};
+      if (event_data.tickets) {
+        event_data.tickets.forEach(function (ticket) {
+          let ticket_info = ticket;
+          tickets[ticket.id] = ticket_info;
+        });
 
-    if (event_data.tickets) {
-      event_data.tickets.forEach(function (ticket) {
-        let ticket_info = ticket;
-        tickets[ticket.id] = ticket_info;
-      });
+        setTicketData(tickets);
+      }
 
-      setTicketData(tickets);
+      setIsLoading(false);
+      resetValues();
+    } catch (error) {
+      console.error(error);
+      console.error("Search fetch")
+      Alert.alert('Network Error', 'Failed to fetch data.');
+      setIsLoading(false);
     }
+
 
     setIsLoading(false);
     resetValues();
@@ -155,6 +188,82 @@ function EventScreen({route, navigation}) {
     setSelectedTicketId(null);
     await fetchData();
     setRefreshing(false);
+  };
+
+  const fetchPaymentSheetParams = async () => {
+    const email = await AsyncStorage.getItem('email');
+    const first_name = await AsyncStorage.getItem('first_name');
+    const surname = await AsyncStorage.getItem('surname');
+    const phone_number = await AsyncStorage.getItem('phone_number');
+    const user_id = await AsyncStorage.getItem('user_id');
+
+    const name = first_name + ' ' + surname;
+
+    try {
+      const response = await fetch(`${apiUrl}/payment-sheet`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          price: price,
+          user_email: email,
+          user_phone_number: phone_number,
+          user_name: name,
+          user_id: user_id,
+          ask_id: askId,
+        }),
+      });
+
+      const response_data = await response.json();
+
+      const {paymentIntent, ephemeralKey, customer} = response_data;
+
+      return {
+        paymentIntent,
+        ephemeralKey,
+        customer,
+      };
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Network Error', 'Failed to fetch payment sheet params.');
+    }
+  };
+
+  const openPaymentSheet = async () => {
+    const {error} = await presentPaymentSheet();
+
+    if (error) {
+      Alert.alert(`Error code: ${error.code}`, error.message);
+    } else {
+      fetch(`${apiUrl}/listings/fulfill`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ask_id: askId,
+          buyer_user_id: user_id,
+        }),
+      })
+        .then(async response => {
+          if (!response.ok) {
+            throw new Error('HTTP status ' + response.status);
+          }
+          return response.json();
+        })
+        .then(() => {
+          Alert.alert('Success', 'Your order is confirmed!');
+          navigation.goBack();
+          navigation.navigate("MyPurchases");
+        })
+        .catch(error => {
+          // Handle network errors.
+          Alert.alert("Unexpected error");
+          console.error(error);
+        });
+
+    }
   };
 
   useEffect(() => {
@@ -181,7 +290,7 @@ function EventScreen({route, navigation}) {
   }, [selectedTicketId]);
 
   const resetValues = () => {
-    setBuyButtonTitle('No Tickets Available');
+    setBuyButtonTitle('No Ticket Selected');
     setBuyButtonDisabled(true);
     setCheapest(null);
     setAskId(null);

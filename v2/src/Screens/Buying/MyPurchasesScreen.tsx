@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused} from '@react-navigation/native';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
+import {formatTimes} from '../../utilities';
 
 function MyPurchasesScreen() {
   const [purchases, setPurchases] = useState([]);
@@ -32,7 +33,7 @@ function MyPurchasesScreen() {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': user_id,
+        Authorization: user_id,
       },
     })
       .then(async response => {
@@ -80,6 +81,19 @@ function MyPurchasesScreen() {
     setPurchases(newPurchases);
   };
 
+  const handleTransfer = async askId => {
+    const response = await fetch(`${apiUrl}/transfers/${askId}`);
+    const body = await response.json();
+
+    if (response.ok) {
+      // Assuming the API response contains a 'transfer_url' field
+      const transferUrl = body.transfer_url;
+      Linking.openURL(transferUrl);
+    } else {
+      console.error('Failed to fetch transfer URL: ', body);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -98,6 +112,9 @@ function MyPurchasesScreen() {
               onPress={() => toggleEventExpanded(eventIndex)}>
               <View style={styles.listItemTextContainer}>
                 <Text style={styles.listItemTitle}>{event.event_name}</Text>
+                <Text>
+                  {formatTimes(event.open_time * 1000, event.close_time * 1000)}
+                </Text>
               </View>
               <Image
                 source={{uri: event.image_url}}
@@ -120,8 +137,7 @@ function MyPurchasesScreen() {
                   {ticket.isExpanded &&
                     Object.keys(ticket.purchases).map(
                       (purchaseId, purchaseIndex) => {
-                        let transferUrl =
-                          ticket.purchases[purchaseId].transfer_url;
+                        let claimed = ticket.purchases[purchaseId].claimed;
 
                         return (
                           <View
@@ -132,16 +148,17 @@ function MyPurchasesScreen() {
                                 Price: £{ticket.purchases[purchaseId].price}
                               </Text>
                               <Text style={styles.subSubListItemText}>
-                                {transferUrl ? (
-                                  <Text
-                                    style={{color: 'blue'}}
-                                    onPress={() =>
-                                      Linking.openURL(transferUrl)
-                                    }>
-                                    Transfer Link
-                                  </Text>
+                                {claimed ? (
+                                  <Text>Ticket been claimed</Text>
                                 ) : (
-                                  <Text>Ticket has been transferred.</Text>
+                                  <TouchableOpacity
+                                    onPress={() =>
+                                      handleTransfer(ticket.purchases[purchaseId].ask_id)
+                                    }>
+                                    <Text style={styles.transferButtonText}>
+                                      Claim Ticket
+                                    </Text>
+                                  </TouchableOpacity>
                                 )}
                               </Text>
                             </View>
@@ -284,6 +301,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333333',
     textAlign: 'center',
+  },
+  transferButtonText: {
+    color: 'blue', // Or any color that suits your style
+    fontSize: 18,
   },
 });
 

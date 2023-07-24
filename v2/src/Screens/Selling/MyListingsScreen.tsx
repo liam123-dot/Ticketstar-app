@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
@@ -23,19 +24,36 @@ function AmendButton({
 }) {
   const navigation = useNavigation();
 
-  const handlePress = () => {
-    navigation.navigate('HomeStack', {
-      screen: 'Post Ask',
-      params: {
-        fixr_ticket_id: fixr_ticket_id,
-        fixr_event_id: fixr_event_id,
-        ticket_name: ticket_name,
-        event_name: event_name,
-        ticket_verified: true,
-        ask_id: ask_id,
-        current_price: current_price,
-      },
+  const handlePress = async () => {
+    const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+
+    const response = await fetch(`${apiUrl}/CheckListingEditable/${ask_id}`, {
+
+      method: 'GET',
+
     });
+
+    if (response.ok) {
+
+      const data = await response.json();
+
+      const reserve_timeout = data.reserve_timeout;
+
+      navigation.navigate('HomeStack', {
+        screen: 'Post Ask',
+        params: {
+          fixr_ticket_id: fixr_ticket_id,
+          fixr_event_id: fixr_event_id,
+          ticket_name: ticket_name,
+          event_name: event_name,
+          ticket_verified: true,
+          ask_id: ask_id,
+          current_price: current_price,
+          reserve_timeout: reserve_timeout,
+        },
+      });
+
+    }
   };
 
   return (
@@ -48,10 +66,9 @@ function AmendButton({
 function MyListingsScreen() {
   const [listings, setListings] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState('all');
 
-  const RelistButton = ({
-    ask_id,
-  }) => {
+  const RelistButton = ({ask_id}) => {
     const handlePress = async () => {
       // Your fetch call here
       const response = await fetch(`${apiUrl}/listing/relist`, {
@@ -61,12 +78,9 @@ function MyListingsScreen() {
         }),
       });
 
-      if (response.status === 200){
-
+      if (response.status === 200) {
         fetchData();
-
       }
-
     };
 
     return (
@@ -87,7 +101,7 @@ function MyListingsScreen() {
   const fetchData = async () => {
     const user_id = await AsyncStorage.getItem('user_id');
 
-    fetch(`${apiUrl}/listing?filter=unsold`, {
+    fetch(`${apiUrl}/listing?filter=${filter}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -133,6 +147,30 @@ function MyListingsScreen() {
     setListings(newListing);
   };
 
+  const handleFilterChange = async filter => {
+    setFilter(filter);
+    // setRefreshing(true);
+    // await fetchData();
+    // setRefreshing(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [filter]);
+
+  const handleTransfer = async askId => {
+    const response = await fetch(`${apiUrl}/transfers/${askId}`);
+    const body = await response.json();
+
+    if (response.ok) {
+      // Assuming the API response contains a 'transfer_url' field
+      const transferUrl = body.transfer_url;
+      Linking.openURL(transferUrl);
+    } else {
+      console.error('Failed to fetch transfer URL: ', body);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -142,6 +180,32 @@ function MyListingsScreen() {
       }>
       <View style={styles.titleContainer}>
         <Text style={styles.title}>Your Listings</Text>
+      </View>
+      <View style={styles.filterContainer}>
+        <TouchableOpacity onPress={() => handleFilterChange('all')}>
+          <Text
+            style={
+              filter === 'all' ? styles.filterTextActive : styles.filterText
+            }>
+            All
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => handleFilterChange('unsold')}>
+          <Text
+            style={
+              filter === 'unsold' ? styles.filterTextActive : styles.filterText
+            }>
+            Unsold
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => handleFilterChange('sold')}>
+          <Text
+            style={
+              filter === 'sold' ? styles.filterTextActive : styles.filterText
+            }>
+            Sold
+          </Text>
+        </TouchableOpacity>
       </View>
       {listings && listings.length > 0 ? (
         listings.map((event, eventIndex) => (
@@ -187,6 +251,20 @@ function MyListingsScreen() {
                                 : 'Not Sold'
                               : 'Not Listed'}
                           </Text>
+                          {ticket.listings[askId].listed ? (
+                            <></>
+                          ) : ticket.listings[askId].ownership ? (
+                            <TouchableOpacity
+                              onPress={() =>
+                                handleTransfer(ticket.listings[askId].ask_id)
+                              }>
+                              <Text style={styles.transferButtonText}>
+                                Re-claim ticket
+                              </Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <Text>Ticket reclaimed</Text>
+                          )}
                         </View>
 
                         {ticket.listings[askId].fulfilled ? (
@@ -202,10 +280,14 @@ function MyListingsScreen() {
                             }
                             current_price={ticket.listings[askId].price}
                           />
+                        ) : ticket.listings[askId].ownership ? (
+                          <>
+                            <RelistButton
+                              ask_id={ticket.listings[askId].ask_id}
+                            />
+                          </>
                         ) : (
-                          <RelistButton
-                            ask_id={ticket.listings[askId].ask_id}
-                          />
+                          <></>
                         )}
                       </View>
                     ))}
@@ -360,6 +442,28 @@ const styles = StyleSheet.create({
   relistButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 18,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 10,
+  },
+  filterText: {
+    fontSize: 20,
+    color: 'gray',
+  },
+  filterTextActive: {
+    fontSize: 20,
+    color: 'black',
+    fontWeight: 'bold',
+  },
+  transferButtonText: {
+    color: 'blue', // Or any color that suits your style
     fontSize: 18,
   },
 });

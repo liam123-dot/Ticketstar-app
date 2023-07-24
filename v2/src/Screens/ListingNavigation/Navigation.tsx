@@ -1,7 +1,7 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {NavigationContainer} from '@react-navigation/native';
+import {createStackNavigator} from '@react-navigation/stack';
+import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 
 // Import your screens
 import SignInScreen from '../Authentication/SignInScreen';
@@ -12,13 +12,14 @@ import EventScreen from './EventScreen';
 import VorganiserScreen from './VorganiserScreen';
 import PostAskScreen from '../Selling/PostAskScreen';
 import SettingsScreen from '../SettingsScreen';
-import MyListingsScreen from "../Selling/MyListingsScreen";
-import BuyingScreen from "../Buying/BuyingScreen";
-import MyPurchasesScreen from "../Buying/MyPurchasesScreen";
+import MyListingsScreen from '../Selling/MyListingsScreen';
+import BuyingScreen from '../Buying/BuyingScreen';
+import MyPurchasesScreen from '../Buying/MyPurchasesScreen';
 
 const MainStack = createStackNavigator();
 const HomeStack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+const NavigationContext = React.createContext();
 
 function HomeTabs() {
   return (
@@ -38,7 +39,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="Event" component={EventScreen} />
       <HomeStack.Screen name="Vorganiser" component={VorganiserScreen} />
       <HomeStack.Screen name="Post Ask" component={PostAskScreen} />
-      <HomeStack.Screen name="Buy" component={BuyingScreen}/>
+      <HomeStack.Screen name="Buy" component={BuyingScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -46,11 +47,26 @@ function HomeStackNavigator() {
 export default function Navigation() {
   return (
     <NavigationContainer>
-      <MainStack.Navigator initialRouteName="SignIn" screenOptions={{headerShown: false}}>
+      <MainStack.Navigator
+        initialRouteName="SignIn"
+        screenOptions={{headerShown: false}}>
         <MainStack.Screen name="SignIn" component={SignInScreen} />
         <MainStack.Screen name="SignUp" component={SignUpScreen} />
-        <MainStack.Screen name="ConfirmVerificationCode" component={ConfirmVerificationCodeScreen} />
-        <MainStack.Screen name="Home" component={HomeTabs} />
+        <MainStack.Screen
+          name="ConfirmVerificationCode"
+          component={ConfirmVerificationCodeScreen}
+        />
+        <MainStack.Screen
+          name="Home"
+          options={({navigation}) => ({
+            navigation,
+          })}>
+          {props => (
+            <NavigationContext.Provider value={props.navigation}>
+              <HomeTabs />
+            </NavigationContext.Provider>
+          )}
+        </MainStack.Screen>
       </MainStack.Navigator>
     </NavigationContainer>
   );

@@ -11,12 +11,11 @@ import {
   Image,
 } from 'react-native';
 import {
-  NavigationContainer,
-  useFocusEffect,
   useNavigation,
 } from '@react-navigation/native';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {formatTimes} from "../../utilities";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -30,7 +29,10 @@ function ListItem({title, object}) {
       }
     }),
   );
-  const handlePress = () => {
+  const handlePress = async () => {
+
+    const user_id = await AsyncStorage.getItem("user_id");
+
     if (title == 'Events') {
       navigation.navigate('Event', {
         fixr_id: object.fixr_id,
@@ -39,6 +41,7 @@ function ListItem({title, object}) {
         venue: object.venue,
         open_time: object.open_time,
         close_time: object.close_time,
+        user_id: user_id,
       });
     } else {
       navigation.navigate('Vorganiser', {
