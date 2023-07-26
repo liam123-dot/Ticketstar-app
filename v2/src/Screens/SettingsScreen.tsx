@@ -17,15 +17,23 @@ function SettingsScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [sellerEnabled, setSellerEnabled] = useState('');
 
+  const [firstName, setFirstName] = useState(null);
+  const [surname, setSurname] = useState(null);
+
   const loadDetails = async () => {
     const email = await AsyncStorage.getItem('email');
     const phone_number = await AsyncStorage.getItem('phone_number');
-    const sellerEnabled =
-      (await AsyncStorage.getItem("SellerVerified")) === 'true';
+    const sellerEnabled = (await AsyncStorage.getItem('SellerVerified')) === 'true';
+
+    const first_name = await AsyncStorage.getItem('first_name');
+    const surname = await AsyncStorage.getItem('surname');
 
     setEmail(email);
     setPhoneNumber(phone_number);
     setSellerEnabled(sellerEnabled);
+
+    setFirstName(first_name);
+    setSurname(surname);
   };
 
   useEffect(() => {
@@ -43,7 +51,7 @@ function SettingsScreen() {
       'phone_number_verified',
     ]);
 
-    navigation.navigate('SignIn');
+    navigation.navigate('MainPage');
   };
 
   const becomeSeller = async () => {
@@ -72,6 +80,8 @@ function SettingsScreen() {
     const data = await response.json();
     const link = data.link;
 
+    console.log(link);
+
     if (link == null) {
       await AsyncStorage.setItem('SellerVerified', 'true');
     }
@@ -81,8 +91,15 @@ function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Settings</Text>
+
+      <View style={styles.settingsItem}>
+        <Text style={styles.detailHeader}>First Name</Text>
+        <Text style={styles.detailContent}>{firstName}</Text>
+      </View>
+
+      <View style={styles.settingsItem}>
+        <Text style={styles.detailHeader}>Surname</Text>
+        <Text style={styles.detailContent}>{surname}</Text>
       </View>
 
       <View style={styles.settingsItem}>
@@ -126,7 +143,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     fontSize: 20,
-    color: '#F5F5F5',
+    color: 'black',
     fontWeight: 'bold',
   },
   settingsItem: {

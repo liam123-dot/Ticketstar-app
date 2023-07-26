@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, {useState, useEffect, useContext} from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  FlatList,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -20,9 +23,21 @@ function ListItem({object, onSelect, isSelected}) {
       onPress={() => onSelect(object.id)}>
       <View style={styles.listItemTextContainer}>
         <Text style={styles.text}>{object.name}</Text>
-        <Text style={[styles.price, styles.text]}>
-          Original Price: £{object.price + object.booking_fee}
-        </Text>
+        {
+          object.listing ? (
+            <Text style={styles.price}>
+              £{(parseFloat(object.listing.ask_price)).toFixed(2)}
+            </Text>
+          ) : <></>
+        }
+
+        {/*{*/}
+        {/*  object.listing*/}
+        {/*}*/}
+        {/*<Text style={[styles.price, styles.text]}>*/}
+        {/*  Original Price: £{object.price + object.booking_fee}*/}
+        {/*</Text>*/}
+        {/* Adding an icon here could be nice */}
       </View>
     </TouchableOpacity>
   );
@@ -79,7 +94,6 @@ function EventScreen({route, navigation}) {
   };
 
   const handleBuyPress = () => {
-
     const navigate = async () => {
       const response = await fetch(apiUrl + '/listings/reserve', {
         method: 'POST',
@@ -154,7 +168,10 @@ function EventScreen({route, navigation}) {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(apiUrl + `/search/event/${fixr_id}?user_id=${user_id}`, { method: 'GET' });
+      const response = await fetch(
+        apiUrl + `/search/event/${fixr_id}?user_id=${user_id}`,
+        {method: 'GET'},
+      );
       const event_data = await response.json();
       setEventData(event_data);
 
@@ -167,20 +184,20 @@ function EventScreen({route, navigation}) {
         });
 
         setTicketData(tickets);
+        console.log(tickets);
       }
 
       setIsLoading(false);
-      resetValues();
+      resetValues(true);
     } catch (error) {
       console.error(error);
-      console.error("Search fetch")
+      console.error('Search fetch');
       Alert.alert('Network Error', 'Failed to fetch data.');
       setIsLoading(false);
     }
 
-
     setIsLoading(false);
-    resetValues();
+    resetValues(true);
   };
 
   const handleRefresh = async () => {
@@ -255,14 +272,13 @@ function EventScreen({route, navigation}) {
         .then(() => {
           Alert.alert('Success', 'Your order is confirmed!');
           navigation.goBack();
-          navigation.navigate("MyPurchases");
+          navigation.navigate('MyPurchases');
         })
         .catch(error => {
           // Handle network errors.
-          Alert.alert("Unexpected error");
+          Alert.alert('Unexpected error');
           console.error(error);
         });
-
     }
   };
 
@@ -277,20 +293,22 @@ function EventScreen({route, navigation}) {
           const listing = ticketData[selectedTicketId].listing;
           const price = listing.ask_price;
 
-          setBuyButtonTitle(`Buy - £${price}`);
+          setBuyButtonTitle(`Buy - £${parseFloat(price).toFixed(2)}`);
           setBuyButtonDisabled(false);
           setCheapest(listing.cheapest);
           setAskId(listing.ask_id);
           setPrice(price);
         } else {
-          resetValues();
+          resetValues(false);
         }
       }
     }
   }, [selectedTicketId]);
 
-  const resetValues = () => {
-    setBuyButtonTitle('No Ticket Selected');
+  const resetValues = refreshing => {
+    setBuyButtonTitle(
+      refreshing ? 'No Ticket Selected' : 'No Tickets for Sale',
+    );
     setBuyButtonDisabled(true);
     setCheapest(null);
     setAskId(null);
@@ -299,42 +317,60 @@ function EventScreen({route, navigation}) {
 
   return (
     <View style={styles.screen}>
-      <ScrollView
-        style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }>
+      <View style={styles.container}>
         {isLoading ? (
-          <Text style={styles.title}>Loading...</Text>
+          <ActivityIndicator size="large" color="#0000ff" />
         ) : (
           <>
             <Text style={styles.title}>{name}</Text>
+            <Image
+              source={{uri: image_url}}
+              style={styles.eventImage}
+              PlaceholderContent={<ActivityIndicator />} // A placeholder component for the image
+            />
             <Text style={styles.timeText}>
               {formatTimes(open_time, close_time)}
             </Text>
             <Text style={styles.venueText}>{venue}</Text>
-            <ListContainer
-              title="Tickets"
-              objects={eventData?.tickets}
-              onSelectTicket={setSelectedTicketId}
-              selectedTicketId={selectedTicketId}
+            <FlatList // Using FlatList for better performance
+              data={eventData?.tickets}
+              renderItem={({item}) => (
+                <ListItem
+                  object={item}
+                  onSelect={setSelectedTicketId}
+                  isSelected={selectedTicketId === item.id}
+                />
+              )}
+              keyExtractor={item => item.id}
             />
           </>
         )}
-      </ScrollView>
+      </View>
+
       <View style={styles.actionBar}>
-        <CustomButton
-          title={buyButtonTitle}
-          onPress={handleBuyPress}
-          color="#43a047"
-          disabled={buyButtonDisabled}
-        />
-        <CustomButton
-          title={'Sell'}
-          onPress={handleSellPress}
-          color="#e53935"
-          disabled={!selectedTicketId}
-        />
+        <View>
+          {selectedTicketId && ticketData[selectedTicketId] ? (
+            <Text style={[styles.price, styles.text, {alignSelf: 'center', paddingVertical: 8}]}>
+              Original Price: £
+              {ticketData[selectedTicketId].price +
+                ticketData[selectedTicketId].booking_fee}
+            </Text>
+          ) : null}
+        </View>
+        <View style={{flexDirection: 'row'}}>
+          <CustomButton
+            title={buyButtonTitle}
+            onPress={handleBuyPress}
+            color="#43a047"
+            disabled={buyButtonDisabled}
+          />
+          <CustomButton
+            title={'Sell'}
+            onPress={handleSellPress}
+            color="#e53935"
+            disabled={!selectedTicketId}
+          />
+        </View>
       </View>
     </View>
   );
@@ -370,7 +406,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   actionBar: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     padding: 10,
     borderTopWidth: 1,
     borderTopColor: '#ddd',
@@ -379,7 +415,6 @@ const styles = StyleSheet.create({
   customButton: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 5,
     marginHorizontal: 5,
@@ -425,7 +460,8 @@ const styles = StyleSheet.create({
   price: {
     fontWeight: 'bold',
     alignSelf: 'flex-end',
-    color: '#3f51b5',
+    color: '#43a047',
+    fontSize: 20
   },
   listContainer: {
     marginVertical: 10,
@@ -447,6 +483,11 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: 'bold',
     marginBottom: 10,
+  },
+  eventImage: {
+    width: '100%',
+    height: 200,
+    marginBottom: 15,
   },
 });
 

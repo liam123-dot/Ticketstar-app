@@ -1,15 +1,20 @@
 import React, {useState, useEffect} from 'react';
-import { API_URL_PROD } from '@env'
+import {API_URL_PROD} from '@env';
 import {
   View,
   TextInput,
   Alert,
   TouchableOpacity,
   Text,
+  SafeAreaView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import {authenticationStyles} from "../Styling/authentication";
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
+import Logo from './Logo';
+import InputField from './InputField';
+import CustomButton from './CustomButton';
+import FinePrintButton from './FinePrintButton';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 const SignInScreen = () => {
   const navigation = useNavigation();
@@ -18,13 +23,10 @@ const SignInScreen = () => {
 
   const [isEmailValid, setIsEmailValid] = useState(false);
   const [isPasswordValid, setIsPasswordValid] = useState(false);
-  const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+  // const emailRegex = /^[^\s@]+@exeter\.ac\.uk$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const apiUrl = API_URL_PROD;
-
-  useEffect(() => {
-    checkUserExistence();
-  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -35,35 +37,15 @@ const SignInScreen = () => {
     }, []),
   );
 
-  const checkUserExistence = async () => {
-    try {
-      const user_id = await AsyncStorage.getItem('user_id');
-      if (user_id) {
-        // User exists, navigate to the home screen
-        navigation.navigate('Home', {
-          screen: 'HomeTabs',
-          params: {
-            screen: 'Search',
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Error checking user existence:', error);
-    }
-  };
-
   const onSubmit = async () => {
     try {
-      const response = await fetch(
-          (apiUrl + '/authentication/signin'),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({email: emailInput, password}),
+      const response = await fetch(apiUrl + '/authentication/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify({email: emailInput, password}),
+      });
 
       const result = await response.json();
       if (response.ok) {
@@ -105,57 +87,55 @@ const SignInScreen = () => {
     }
   };
 
-  const registerClick = () => {
-    navigation.navigate('SignUp');
+  const forgotPasswordClick = () => {
+    navigation.navigate('ForgotPassword');
   };
 
   return (
-    <View style={authenticationStyles.container}>
-      <TextInput
-        style={authenticationStyles.input}
-        value={emailInput}
-        placeholder="Email"
-        placeholderTextColor="#888"
-        onChangeText={text => {
-          setEmail(text);
-          setIsEmailValid(emailRegex.test(text));
-        }}
-        testID="emailInput"
-      />
-      <TextInput
-        style={authenticationStyles.input}
-        value={password}
-        onChangeText={text => {
-          setPassword(text);
-          setIsPasswordValid(text.length > 5);
-        }}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        secureTextEntry={true}
-        testID="passwordInput"
-      />
-      <TouchableOpacity
-        style={
-          isEmailValid && isPasswordValid
-            ? authenticationStyles.button
-            : authenticationStyles.buttonDisabled
-        }
-        onPress={onSubmit}
-        disabled={!(isEmailValid && isPasswordValid)}
-        testID="signInButton">
-        <Text style={authenticationStyles.buttonText}>Sign In</Text>
-      </TouchableOpacity>
+    <SafeAreaView
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+      <Logo />
 
-      <TouchableOpacity
-        style={authenticationStyles.registerButton}
-        onPress={registerClick}
-        testID="registerButton"
-      >
-        <Text style={authenticationStyles.registerButtonText}>
-          Don't have an account? Register
-        </Text>
-      </TouchableOpacity>
-    </View>
+      <View
+        style={{
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '75%',
+          bottom: '2%',
+        }}>
+        <InputField
+          placeHolder={'Email'}
+          text={emailInput}
+          setText={setEmail}
+          validationRegex={emailRegex}
+          errorMessage={'Must be an exeter.ac.uk email'}
+          onValidChange={setIsEmailValid}
+        />
+        <InputField
+          placeHolder={'Password'}
+          text={password}
+          setText={setPassword}
+          onValidChange={setIsPasswordValid}
+          secureEntry={true}
+        />
+      </View>
+
+      <CustomButton
+        title={'Log In'}
+        disabled={!(isEmailValid && isPasswordValid)}
+        handlePress={onSubmit}
+      />
+
+      <FinePrintButton
+        title={'Forgot Password?'}
+        handlePress={forgotPasswordClick}
+      />
+    </SafeAreaView>
   );
 };
 

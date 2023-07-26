@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     paddingVertical: 20,
     paddingHorizontal: 10,
-    marginBottom: 10,
+    marginBottom: 0,
     borderRadius: 10,
   },
   title: {
@@ -447,8 +447,8 @@ const styles = StyleSheet.create({
   filterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 10,
-    marginTop: 10,
+    marginBottom: 0,
+    marginTop: 0,
     padding: 10,
     backgroundColor: '#f8f8f8',
     borderRadius: 10,

@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     borderColor: '#dddddd',
     borderRadius: 5,
     backgroundColor: 'white',
-    marginVertical: 5,
+    marginVertical: 0,
   },
   listItemTextContainer: {
     flex: 1,
@@ -221,8 +221,8 @@ const styles = StyleSheet.create({
   subListItem: {
     backgroundColor: 'white',
     paddingLeft: 20,
-    paddingVertical: 10,
-    marginVertical: 2,
+    paddingVertical: 0,
+    marginVertical: 0,
     borderBottomWidth: 1,
     borderColor: '#dddddd',
   },

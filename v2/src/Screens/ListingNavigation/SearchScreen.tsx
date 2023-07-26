@@ -16,6 +16,7 @@ import {
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {formatTimes} from "../../utilities";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import AntDesign from "react-native-vector-icons/AntDesign";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -109,6 +110,7 @@ function SearchScreen() {
   const [currentTab, setCurrentTab] = useState('Events');
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+  // const apiUrl = API_URL_PROD;
 
   const handleChangeText = text => {
     setSearchText(text);
@@ -150,22 +152,29 @@ function SearchScreen() {
     <SafeAreaView style={{flex: 1}}>
       <View style={{flexDirection: 'row', alignItems: 'center', margin: 5}}>
         <TextInput
-          style={[styles.searchInput, {flex: 1}]}
+          style={[styles.searchInput, {flex: 1, borderColor: '#95A1F1', borderWidth: 1}]}
           placeholder="Search"
           value={searchText}
           onChangeText={handleChangeText}
         />
-        <TouchableOpacity style={{marginLeft: 10}}>
+        <TouchableOpacity style={{marginHorizontal: 10}}>
           <Text
             style={{fontSize: 16, color: '#000'}}
             onPress={() => handleSearch(currentTab)}>
-            Search
+            <AntDesign name={'search1'} size={30}/>
           </Text>
         </TouchableOpacity>
       </View>
 
-      <Tab.Navigator initialRouteName="Events">
-        <Tab.Screen
+      <Tab.Navigator
+        initialRouteName="Events"
+        screenOptions={{
+          tabBarStyle: {borderBottomColor: '#95A1F1', borderBottomWidth: 1},
+          tabBarActiveTintColor: '#000',
+          tabBarInactiveTintColor: 'gray',
+        }}>
+
+      <Tab.Screen
           name="Events"
           children={() => <SearchTab type="Events" data={data.Events} />}
           listeners={{
@@ -199,7 +208,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   searchInput: {
-    margin: 15,
+    margin: 5,
     padding: 10,
     borderRadius: 5,
     backgroundColor: '#fff',
@@ -221,6 +230,7 @@ const styles = StyleSheet.create({
   listItemTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    // color: '#95A1F1',
   },
   listItemSubtitle: {
     fontSize: 14,

@@ -32,6 +32,28 @@ function PostAskScreen({navigation, route}) {
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
+  const handlePriceChange = (price: string) => {
+    let decimalPrice: string;
+
+    // Remove £ if present
+    if (price.includes("£")) {
+      decimalPrice = price.slice(1);
+    } else {
+      decimalPrice = price;
+    }
+
+    // Check if price has more than 1 decimal place
+    let decimalIndex = decimalPrice.indexOf('.');
+    if (decimalIndex !== -1 && decimalIndex < decimalPrice.length - 2) {
+      // Price has more than one decimal place, so limit it to one decimal place
+      decimalPrice = decimalPrice.slice(0, decimalIndex + 2);
+    }
+
+    // Append £ to the price
+    setPrice("£" + decimalPrice);
+  }
+
+
   useEffect(() => {
     const getUserId = async () => {
       const userId = await AsyncStorage.getItem('user_id');
@@ -99,7 +121,7 @@ function PostAskScreen({navigation, route}) {
         method: 'PUT',
         body: JSON.stringify({
           ask_id: ask_id,
-          price: price,
+          price: price.slice(1, price.length),
         }),
       });
     } else {
@@ -109,7 +131,7 @@ function PostAskScreen({navigation, route}) {
           fixr_ticket_id: fixr_ticket_id,
           fixr_event_id: fixr_event_id,
           transfer_url: transferUrl,
-          price: price,
+          price: price.slice(1, price.length),
           user_id: userId,
         }),
       });
@@ -154,6 +176,7 @@ function PostAskScreen({navigation, route}) {
   };
 
   function isNumber(n: any): boolean {
+    n = n.slice(1, n.length);
     return !isNaN(parseFloat(n)) && !isNaN(n - 0);
   }
 
@@ -214,7 +237,7 @@ function PostAskScreen({navigation, route}) {
           placeholder="Price (£)"
           placeholderTextColor="#888"
           value={price}
-          onChangeText={setPrice}
+          onChangeText={handlePriceChange}
           keyboardType="numeric"
         />
       </View>

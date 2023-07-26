@@ -5,6 +5,7 @@ import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {StripeProvider} from '@stripe/stripe-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
+import MainPage from "./src/Screens/Authentication/MainPage";
 
 enableScreens(); // ensure screens are enabled for better performance
 
@@ -33,13 +34,15 @@ export default function App() {
         const user_has_stripe = data.user_has_stripe;
         const action_required = data.further_action_required;
 
-        if (!user_has_stripe || action_required) {
-          await AsyncStorage.setItem('SellerVerified', String(false));
-        } else {
-          await AsyncStorage.setItem('SellerVerified', String(true));
-        }
+        let sellerVerified;
 
-        console.log(await AsyncStorage.getItem("SellerVerified"));
+        if (!user_has_stripe || action_required) {
+          sellerVerified = false;
+        } else {
+          sellerVerified = true;
+        }
+        console.log(sellerVerified)
+        await AsyncStorage.setItem('SellerVerified', String(sellerVerified));
       }
     };
 
@@ -50,7 +53,7 @@ export default function App() {
   return (
     <StripeProvider
       publishableKey={
-        'pk_live_51NJwFSDXdklEKm0RH9UR7RgQ2kPsEQvbFaSJKVl5PnBMNWVIVT88W4wMIo8IIm9A6TvKOBOVV4xPSN9tvPMHAZOJ00uA9XSbKi'
+        'pk_test_51NJwFSDXdklEKm0R8JRHkohXh2qEKG57G837zZCKOUFXlyjTNkHa2XOSUa0zhN2rQaVkd9NPTykrdC9IRnoBlZ7Z00uMUWz549'
       }>
       <SafeAreaProvider>
         <SafeAreaView style={{flex: 1}}>

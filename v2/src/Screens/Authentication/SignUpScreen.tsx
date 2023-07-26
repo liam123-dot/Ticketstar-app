@@ -1,13 +1,27 @@
 import React, {useEffect, useState} from 'react';
-import { API_URL_PROD } from '@env'
+import {API_URL_PROD} from '@env';
 import {
   View,
   TextInput,
   Alert,
   Text,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
-import {authenticationStyles} from "../Styling/authentication";
+import {authenticationStyles} from '../Styling/authentication';
+import Logo from './Logo';
+import FinePrintButton from './FinePrintButton';
+import CustomButton from './CustomButton';
+import InputField from './InputField';
+
+const nameValidation = /^.{2,}$/;
+
+const emailValidation = /^[^\s@]+@exeter\.ac\.uk$/;
+
+const passwordValidation =
+  /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+
+const phoneValidation = /^\+44\d{10}$/;
 
 const SignUpScreen = ({navigation}) => {
   const [email, setEmail] = useState('');
@@ -15,42 +29,15 @@ const SignUpScreen = ({navigation}) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [errors, setErrors] = useState({});
+
+  const [isFirstNameValid, setIsFirstNameValid] = useState(false);
+  const [isLastNameValid, setIsLastNameValid] = useState(false);
+  const [isEmailValid, setIsEmailValid] = useState(false);
+  const [isPasswordValid, setIsPasswordValid] = useState(false);
+  const [isPhoneNumberValid, setIsPhoneNumberValid] = useState(false);
 
   const apiUrl = API_URL_PROD;
 
-  console.log(apiUrl)
-
-  useEffect(() => {
-    const errors = {};
-
-    if (firstName.length < 2) {
-      errors.firstName = 'error';
-    }
-    if (lastName.length < 2) {
-      errors.lastName = 'error';
-    }
-
-    const passwordValidation =
-      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
-    if (!password.match(passwordValidation)) {
-      errors.password =
-        'Password requirements:\n8 characters\nAt least one uppercase character\nAt least one number\nAt least one special character';
-    }
-
-    const emailValidation = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.match(emailValidation)) {
-      errors.email = 'Please enter a valid email';
-    }
-
-    const phoneValidation = /^\+44\d{10}$/;
-    if (!phoneNumber.match(phoneValidation)) {
-      errors.phoneNumber =
-        'Please enter a valid British phone number starting with +44';
-    }
-
-    setErrors(errors);
-  }, [firstName, lastName, email, password, phoneNumber]);
   const onSubmit = async () => {
     const userData = {
       email,
@@ -61,26 +48,23 @@ const SignUpScreen = ({navigation}) => {
     };
 
     try {
-      const response = await fetch(
-          (apiUrl + '/authentication/signup'),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(userData),
+      const response = await fetch(apiUrl + '/authentication/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify(userData),
+      });
 
       const result = await response.json();
       if (response.ok) {
         Alert.alert('Success', 'Registration successful');
         navigation.navigate('ConfirmVerificationCode', {email});
       } else {
-        if (response.status == 401){
-          Alert.alert(result.message)
+        if (response.status === 401) {
+          Alert.alert(result.message);
         } else {
-          console.log(result)
+          console.log(result);
         }
       }
     } catch (error) {
@@ -94,70 +78,86 @@ const SignUpScreen = ({navigation}) => {
   };
 
   return (
-    <View style={authenticationStyles.container}>
-      <TextInput
-        style={errors.firstName ? authenticationStyles.inputError : authenticationStyles.input}
-        value={firstName}
-        onChangeText={setFirstName}
-        placeholder="First Name"
-        placeholderTextColor="#888"
-      />
+    <SafeAreaView
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+      <Logo />
 
-      <TextInput
-        style={errors.lastName ? authenticationStyles.inputError : authenticationStyles.input}
-        value={lastName}
-        onChangeText={setLastName}
-        placeholder="Last Name"
-        placeholderTextColor="#888"
-      />
+      <View
+        style={{
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '75%',
+          bottom: '2%',
+        }}>
+        <InputField
+          placeHolder={'First Name'}
+          text={firstName}
+          setText={setFirstName}
+          validationRegex={nameValidation}
+          onValidChange={setIsFirstNameValid}
+        />
+        <InputField
+          placeHolder={'Last Name'}
+          text={lastName}
+          setText={setLastName}
+          validationRegex={nameValidation}
+          onValidChange={setIsLastNameValid}
+        />
+        <InputField
+          placeHolder={'Email'}
+          text={email}
+          setText={setEmail}
+          validationRegex={emailValidation}
+          errorMessage={'Must be an exeter.ac.uk email'}
+          onValidChange={setIsEmailValid}
+        />
+        <InputField
+          placeHolder={'Password'}
+          text={password}
+          setText={setPassword}
+          validationRegex={passwordValidation}
+          errorMessage={
+            'Password requirements:\n8 characeters\nAt least one uppercase character\nAt least one number\nAt least one special character'
+          }
+          onValidChange={setIsPasswordValid}
+          secureEntry={true}
+        />
+        <InputField
+          placeHolder={'Phone Number'}
+          text={phoneNumber}
+          setText={setPhoneNumber}
+          validationRegex={phoneValidation}
+          errorMessage={
+            'Please enter a valid british phone number starting with +44'
+          }
+          onValidChange={setIsPhoneNumberValid}
+        />
+      </View>
 
-      <TextInput
-        style={errors.email ? authenticationStyles.inputError : authenticationStyles.input}
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Email"
-        placeholderTextColor="#888"
-      />
-      {errors.email && <Text style={authenticationStyles.errorText}>{errors.email}</Text>}
-
-      <TextInput
-        style={errors.password ? authenticationStyles.inputError : authenticationStyles.input}
-        value={password}
-        onChangeText={setPassword}
-        placeholder="Password"
-        placeholderTextColor="#888"
-        secureTextEntry={true}
-      />
-      {errors.password && (
-        <Text style={authenticationStyles.errorText}>{errors.password}</Text>
-      )}
-
-      <TextInput
-        style={errors.phoneNumber ? authenticationStyles.inputError : authenticationStyles.input}
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
-        placeholder="Phone Number"
-        placeholderTextColor="#888"
-      />
-      {errors.phoneNumber && (
-        <Text style={authenticationStyles.errorText}>{errors.phoneNumber}</Text>
-      )}
-
-      <TouchableOpacity
-        style={
-          Object.keys(errors).length > 0 ? authenticationStyles.buttonDisabled : authenticationStyles.button
+      <CustomButton
+        title={'Sign Up'}
+        disabled={
+          !(
+            isFirstNameValid &&
+            isLastNameValid &&
+            isEmailValid &&
+            isPasswordValid &&
+            isPhoneNumberValid
+          )
         }
-        onPress={onSubmit}
-        disabled={Object.keys(errors).length > 0}>
-        <Text style={authenticationStyles.buttonText}>Sign Up</Text>
-      </TouchableOpacity>
+        handlePress={onSubmit}
+      />
 
-      <TouchableOpacity style={authenticationStyles.signInButton} onPress={signInClick}>
-        <Text style={authenticationStyles.signInButtonText}>
-          Already have an account? Sign In
-        </Text>
-      </TouchableOpacity>
-    </View>
+      <FinePrintButton
+        title={'Existing User? Login Now'}
+        handlePress={signInClick}
+      />
+    </SafeAreaView>
   );
 };
 
