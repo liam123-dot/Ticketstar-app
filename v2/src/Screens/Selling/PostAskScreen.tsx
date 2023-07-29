@@ -5,8 +5,8 @@ import {
   TouchableOpacity,
   Text,
   StyleSheet,
-  Alert,
-} from 'react-native';
+  Alert, ScrollView, RefreshControl
+} from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {CommonActions} from '@react-navigation/native';
@@ -27,38 +27,98 @@ function PostAskScreen({navigation, route}) {
   const [price, setPrice] = useState('');
   const [userId, setUserId] = useState(null);
 
-  const [countdownTime, setCountdownTime] = useState(reserve_timeout - Math.floor(Date.now() / 1000));
+  const [countdownTime, setCountdownTime] = useState(
+    reserve_timeout - Math.floor(Date.now() / 1000),
+  );
   const [countdownActive, setCountdownActive] = useState(false);
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+
+  const [stripeFixedFee, setStripeFixedFee] = useState(0);
+  const [stripeVariableFee, setStripeVariableFee] = useState(0);
+  const [platformFixedFee, setPlatformFixedFee] = useState(0);
+  const [platformVariableFee, setPlatformVariableFee] = useState(0);
+
+  const [platformFee, setPlatformFee] = useState(0);
+  const [stripeFee, setStripeFee] = useState(0);
+  const [sellerReceives, setSellerReceives] = useState(0);
+
+  const [loading, setLoading] = useState(false);
+  const [invalidPrice, setInvalidPrice] = useState(false);
+
+  console.log(fixr_ticket_id, fixr_event_id);
+
+  const fetchPricing = async () => {
+    const response = await fetch(`${apiUrl}/fees`, {
+      method: 'GET',
+    });
+
+    if (response.ok){
+      const data = await response.json();
+      setStripeFixedFee(data.stripe_fixed_fee);
+      setStripeVariableFee(data.stripe_variable_fee);
+      setPlatformFixedFee(data.platform_fixed_fee);
+      setPlatformVariableFee(data.platform_variable_fee);
+    }
+  };
+
+  const updateFees = (price) => {
+    if (price === '£' || price.length === 0){
+      setStripeFee(0);
+      setPlatformFee(0);
+      setSellerReceives(0);
+    } else {
+      const numericPrice = Number(price.slice(1));
+      let platform_fee = Number((platformFixedFee / 100 + numericPrice * platformVariableFee).toFixed(2));
+      let stripe_fee = Number((stripeFixedFee / 100 + numericPrice * stripeVariableFee).toFixed(2));
+
+      let seller_receives = numericPrice - (platform_fee + stripe_fee);
+
+      setPlatformFee(platform_fee.toFixed(2));
+      setStripeFee(stripe_fee.toFixed(2));
+      setSellerReceives(seller_receives.toFixed(2));
+    }
+  };
 
   const handlePriceChange = (price: string) => {
     let decimalPrice: string;
 
     // Remove £ if present
-    if (price.includes("£")) {
+    if (price.includes('£')) {
       decimalPrice = price.slice(1);
     } else {
       decimalPrice = price;
     }
 
-    // Check if price has more than 1 decimal place
-    let decimalIndex = decimalPrice.indexOf('.');
-    if (decimalIndex !== -1 && decimalIndex < decimalPrice.length - 2) {
-      // Price has more than one decimal place, so limit it to one decimal place
-      decimalPrice = decimalPrice.slice(0, decimalIndex + 2);
+    try {
+      if (parseFloat(decimalPrice) < 0.2) {
+        setInvalidPrice(true);
+      } else {
+        setInvalidPrice(false);
+      }
+
+      // Check if price has more than 1 decimal place
+      let decimalIndex = decimalPrice.indexOf('.');
+      if (decimalIndex !== -1 && decimalIndex < decimalPrice.length - 2) {
+        // Price has more than one decimal place, so limit it to one decimal place
+        decimalPrice = decimalPrice.slice(0, decimalIndex + 2);
+      } else {
+        updateFees(price);
+      }
+
+      // Append £ to the price
+      setPrice('£' + decimalPrice);
+    } catch (e) {
+
     }
-
-    // Append £ to the price
-    setPrice("£" + decimalPrice);
-  }
-
+  };
 
   useEffect(() => {
     const getUserId = async () => {
       const userId = await AsyncStorage.getItem('user_id');
 
       setUserId(userId);
+      fetchPricing();
     };
 
     getUserId();
@@ -85,7 +145,7 @@ function PostAskScreen({navigation, route}) {
       if (intervalId) {
         clearInterval(intervalId);
       }
-    }
+    };
   }, [countdownActive, countdownTime]);
 
   const countdownMin = Math.floor(countdownTime / 60);
@@ -94,7 +154,7 @@ function PostAskScreen({navigation, route}) {
   const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
 
   const verifyTransferUrl = async () => {
-    console.log(`${fixr_event_id} ${fixr_ticket_id}`);
+    setLoading(true);
     const response = await fetch(apiUrl + '/transfers/verifyurl', {
       method: 'POST',
       body: JSON.stringify({
@@ -107,13 +167,14 @@ function PostAskScreen({navigation, route}) {
     if (response.status === 200) {
       setTicketVerified(true);
     } else {
-      Alert.alert("Invalid transfer url for this event")
+      Alert.alert('Invalid transfer url for this event');
       const data = await response.json();
-      console.log(data);
     }
+    setLoading(false);
   };
 
   const handleSubmit = async () => {
+    setLoading(true);
     let response;
 
     if (ticket_verified) {
@@ -138,23 +199,26 @@ function PostAskScreen({navigation, route}) {
     }
 
     if (response.ok) {
-      Alert.alert('Listing successfully posted');
+      Alert.alert('Listing successfully posted', 'You can easily reclaim your ticket from the listings page if you no longer wish to sell it.');
       navigation.goBack();
-      navigation.navigate("MyListings")
+      navigation.navigate('MyListings');
     } else {
       try {
         const data = await response.json();
-        if (data.reason === 'TransferURL'){
+        if (data.reason === 'TransferURL') {
           Alert.alert(data.message);
           setTicketVerified(false);
         }
       } catch (e) {
         console.log('Error parsing response', e);
+
       }
     }
+    setLoading(false);
   };
 
   const handleDelete = async () => {
+    setLoading(true);
     const response = await fetch(apiUrl + '/listing', {
       method: 'DELETE',
       body: JSON.stringify({
@@ -173,6 +237,7 @@ function PostAskScreen({navigation, route}) {
         }),
       );
     }
+    setLoading(false);
   };
 
   function isNumber(n: any): boolean {
@@ -181,15 +246,21 @@ function PostAskScreen({navigation, route}) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}
+    refreshControl={
+      // include the RefreshControl component in ScrollView
+      <RefreshControl refreshing={loading}/>
+    }>
       <Text style={styles.title}>{event_name}</Text>
       <Text style={styles.subtitle}>{ticket_name}</Text>
 
       {ticket_verified ? (
-        <Text style={styles.currentPriceText}>
+        <><Text style={styles.currentPriceText}>
           Current price: £{current_price}
-          Time to edit: {countdownMin}:{countdownSec < 10 ? '0' : ''}{countdownSec}
-        </Text>
+        </Text><Text style={styles.currentPriceText}>
+          Time to edit: {countdownMin}:{countdownSec < 10 ? "0" : ""}
+          {countdownSec}
+        </Text></>
       ) : (
         <View style={styles.inputContainer}>
           <TextInput
@@ -218,22 +289,24 @@ function PostAskScreen({navigation, route}) {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.infoButton}
-            onPress={() =>
-              Alert.alert(
-                'Verify Ticket Ownership',
-                'Enter the transfer url for the event so we can verify its validity, once you press submit we will take the ticket into our account. You can easily reclaim ticket from listings page if you change your mind.',
-              )
-            }>
-            <Text style={styles.infoButtonText}>?</Text>
-          </TouchableOpacity>
+          {/*<TouchableOpacity*/}
+          {/*  style={styles.infoButton}*/}
+          {/*  onPress={() =>*/}
+          {/*    Alert.alert(*/}
+          {/*      'Verify Ticket Ownership',*/}
+          {/*      'Once you press submit we will take the ticket into our account for holding until it is purchased.',*/}
+          {/*    )*/}
+          {/*  }>*/}
+          {/*  <Text style={styles.infoButtonText}>?</Text>*/}
+          {/*</TouchableOpacity>*/}
         </View>
       )}
 
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, {
+          borderColor: invalidPrice ? 'red': '#ddd'
+        }]}
           placeholder="Price (£)"
           placeholderTextColor="#888"
           value={price}
@@ -241,6 +314,23 @@ function PostAskScreen({navigation, route}) {
           keyboardType="numeric"
         />
       </View>
+
+      <View style={{flexDirection: 'row'}}>
+        <Text style={styles.feeText}>Payment Processing fee: £{stripeFee}</Text>
+        <TouchableOpacity
+          style={styles.infoButton}
+          onPress={() =>
+            Alert.alert(
+              'Payment Processing Fee',
+              'This is the fee charged by our payment provider Stripe. We do not currently take a service fee.',
+            )
+          }>
+          <Text style={styles.infoButtonText}>?</Text>
+        </TouchableOpacity>
+      </View>
+      {platformFee > 0 ?
+        <Text style={styles.feeText}>Ticketstar fee: £{platformFee}</Text>: <></>}
+      <Text style={styles.feeText}>You receive: £{sellerReceives}</Text>
 
       <TouchableOpacity
         style={[
@@ -267,7 +357,7 @@ function PostAskScreen({navigation, route}) {
       ) : (
         <></>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -324,6 +414,7 @@ const styles = StyleSheet.create({
   submitButton: {
     width: '100%',
     backgroundColor: '#4CAF50',
+    marginTop: 20,
   },
   submitButtonText: {
     fontSize: 18,
@@ -342,10 +433,10 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   infoButton: {
-    width: 30,
-    height: 30,
+    width: 25,
+    height: 25,
     borderRadius: 15,
-    backgroundColor: '#3f51b5',
+    backgroundColor: '#95A1F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -353,6 +444,11 @@ const styles = StyleSheet.create({
   infoButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  feeText: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 5,
   },
 });
 

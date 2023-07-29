@@ -7,8 +7,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  Linking,
-} from 'react-native';
+  Linking, ActivityIndicator
+} from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
 import {formatTimes} from '../../utilities';
@@ -67,6 +67,8 @@ function MyListingsScreen() {
   const [listings, setListings] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [sellerVerified, setSellerVerified] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const RelistButton = ({ask_id}) => {
     const handlePress = async () => {
@@ -99,7 +101,10 @@ function MyListingsScreen() {
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
   const fetchData = async () => {
+    setLoading(true);
     const user_id = await AsyncStorage.getItem('user_id');
+    const seller_verified = (await AsyncStorage.getItem("SellerVerified")) === 'true';
+    setSellerVerified(seller_verified);
 
     fetch(`${apiUrl}/listing?filter=${filter}`, {
       method: 'GET',
@@ -125,7 +130,9 @@ function MyListingsScreen() {
       })
       .catch(error => {
         console.error('Error: ', error);
+        setLoading(false);
       });
+    setLoading(false);
   };
 
   const isFocused = useIsFocused();
@@ -171,6 +178,39 @@ function MyListingsScreen() {
     }
   };
 
+  const getTitle = (filter) => {
+    switch (filter) {
+      case 'all':
+        return 'not posted any listings yet';
+      case 'unsold':
+        return 'no unsold listings';
+      case 'sold':
+        return 'no sold listings';
+      default:
+        return 'not posted any listings yet';
+    }
+  };
+
+  const getSubTitle = (filter) => {
+    switch (filter){
+      case 'all':
+        return 'When you post a listing, it will appear here';
+      case 'unsold':
+        return 'When you post a listing, it will appear here';
+      case 'sold':
+        return 'When a listing sells, it will appear here';
+    }
+  }
+
+
+  // const subTitle =
+  // filter === 'all' || filter === 'unsold'
+  //   ? 'When you post a listing, it will appear here'
+  //   : 'When a listing sells, it will appear here';
+
+  const title = `You have ${getTitle(filter)}`;
+  const subTitle = `${getSubTitle(filter)}`;
+
   return (
     <ScrollView
       style={styles.container}
@@ -207,7 +247,14 @@ function MyListingsScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-      {listings && listings.length > 0 ? (
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ): (
+
+      sellerVerified ?
+
+      listings && listings.length > 0 ? (
         listings.map((event, eventIndex) => (
           <View key={eventIndex}>
             <TouchableOpacity
@@ -263,7 +310,7 @@ function MyListingsScreen() {
                               </Text>
                             </TouchableOpacity>
                           ) : (
-                            <Text>Ticket reclaimed</Text>
+                            <Text>Ticket has been reclaimed</Text>
                           )}
                         </View>
 
@@ -297,18 +344,25 @@ function MyListingsScreen() {
         ))
       ) : (
         <View style={styles.emptyListings}>
-          {/*<Image*/}
-          {/*  source={require('./path-to-your-image/noListings.png')}*/}
-          {/*  style={styles.emptyListingsImage}*/}
-          {/*/>*/}
           <Text style={styles.emptyListingsTitle}>
-            You have not posted any listings yet
+            {title}
           </Text>
           <Text style={styles.emptyListingsSubTitle}>
-            When you post a listing, it will appear here
+            {subTitle}
           </Text>
         </View>
-      )}
+      )
+        :(
+        <View style={styles.emptyListings}>
+      <Text style={styles.emptyListingsTitle}>
+        Proceed to settings to become a seller
+      </Text>
+          <Text style={styles.emptyListingsSubTitle}>
+            Once you list your first event it will appear here
+          </Text>
+    </View>)
+
+        )}
     </ScrollView>
   );
 }

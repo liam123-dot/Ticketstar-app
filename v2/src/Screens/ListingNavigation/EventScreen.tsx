@@ -3,14 +3,12 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
-  RefreshControl,
-  ScrollView,
+  Image, RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from 'react-native';
+  View
+} from "react-native";
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {formatTimes} from '../../utilities';
@@ -23,13 +21,13 @@ function ListItem({object, onSelect, isSelected}) {
       onPress={() => onSelect(object.id)}>
       <View style={styles.listItemTextContainer}>
         <Text style={styles.text}>{object.name}</Text>
-        {
-          object.listing ? (
-            <Text style={styles.price}>
-              £{(parseFloat(object.listing.ask_price)).toFixed(2)}
-            </Text>
-          ) : <></>
-        }
+        {object.listing ? (
+          <Text style={styles.price}>
+            £{parseFloat(object.listing.ask_price).toFixed(2)}
+          </Text>
+        ) : (
+          <></>
+        )}
 
         {/*{*/}
         {/*  object.listing*/}
@@ -70,7 +68,8 @@ function EventScreen({route, navigation}) {
     route.params;
   const {initPaymentSheet, presentPaymentSheet} = useStripe();
 
-  let apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+  // let apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+  const apiUrl = API_URL_PROD;
 
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,10 +89,13 @@ function EventScreen({route, navigation}) {
 
   const generatePaymentSheet = async () => {
     await initializePaymentSheet();
+    setIsLoading(false);
     await openPaymentSheet();
+    setIsLoading(false);
   };
 
   const handleBuyPress = () => {
+    setIsLoading(true);
     const navigate = async () => {
       const response = await fetch(apiUrl + '/listings/reserve', {
         method: 'POST',
@@ -151,14 +153,24 @@ function EventScreen({route, navigation}) {
     }
   };
 
-  const handleSellPress = () => {
-    navigation.navigate('Post Ask', {
-      fixr_ticket_id: ticketData[selectedTicketId].fixr_ticket_id,
-      fixr_event_id: eventData.fixr_event_id,
-      ticket_name: ticketData[selectedTicketId].name,
-      event_name: name,
-      // Pass the selected ask data
-    });
+  const handleSellPress = async () => {
+    const sellerVerified =
+      (await AsyncStorage.getItem('SellerVerified')) === 'true';
+
+    if (sellerVerified) {
+      navigation.navigate('Post Ask', {
+        fixr_ticket_id: ticketData[selectedTicketId].fixr_ticket_id,
+        fixr_event_id: eventData.fixr_event_id,
+        ticket_name: ticketData[selectedTicketId].name,
+        event_name: name,
+        // Pass the selected ask data
+      });
+    } else {
+      Alert.alert(
+        'You have not signed up to be a seller.',
+        'Proceed to settings to sign up',
+      );
+    }
   };
 
   const initializeData = async () => {
@@ -253,6 +265,7 @@ function EventScreen({route, navigation}) {
     if (error) {
       Alert.alert(`Error code: ${error.code}`, error.message);
     } else {
+      setIsLoading(true);
       fetch(`${apiUrl}/listings/fulfill`, {
         method: 'POST',
         headers: {
@@ -278,7 +291,9 @@ function EventScreen({route, navigation}) {
           // Handle network errors.
           Alert.alert('Unexpected error');
           console.error(error);
+          setIsLoading(false);
         });
+      setIsLoading(false);
     }
   };
 
@@ -334,6 +349,9 @@ function EventScreen({route, navigation}) {
             <Text style={styles.venueText}>{venue}</Text>
             <FlatList // Using FlatList for better performance
               data={eventData?.tickets}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+              }
               renderItem={({item}) => (
                 <ListItem
                   object={item}
@@ -350,7 +368,12 @@ function EventScreen({route, navigation}) {
       <View style={styles.actionBar}>
         <View>
           {selectedTicketId && ticketData[selectedTicketId] ? (
-            <Text style={[styles.price, styles.text, {alignSelf: 'center', paddingVertical: 8}]}>
+            <Text
+              style={[
+                styles.price,
+                styles.text,
+                {alignSelf: 'center', paddingVertical: 8},
+              ]}>
               Original Price: £
               {ticketData[selectedTicketId].price +
                 ticketData[selectedTicketId].booking_fee}
@@ -461,7 +484,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     alignSelf: 'flex-end',
     color: '#43a047',
-    fontSize: 20
+    fontSize: 20,
   },
   listContainer: {
     marginVertical: 10,

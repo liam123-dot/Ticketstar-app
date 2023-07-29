@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused} from '@react-navigation/native';
@@ -17,31 +18,36 @@ import {formatTimes} from '../../utilities';
 function MyPurchasesScreen() {
   const [purchases, setPurchases] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState('unclaimed'); // initialize filter state as 'all'
+  const [loading, setLoading] = useState(false);
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
+  // const apiUrl = API_URL_PROD;
+  const handleFilterChange = newFilter => {
+    setFilter(newFilter);
+    handleRefresh(newFilter); // when filter changes, fetch data again with the new filter
   };
 
-  const fetchData = async () => {
+  const handleRefresh = async (filter) => {
+    setLoading(true);
+    await fetchData(filter); // include current filter when refreshing
+    setLoading(false);
+  };
+
+  const fetchData = async (filter = 'all') => {
     const user_id = await AsyncStorage.getItem('user_id');
 
-    fetch(`${apiUrl}/purchases`, {
+    fetch(`${apiUrl}/purchases?filter=${filter}`, {
+      // pass filter as query param
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         Authorization: user_id,
       },
     })
-      .then(async response => {
+      .then(response => {
         if (!response.ok) {
-          const responseBody = await response.json();
-          throw new Error(
-            `HTTP error! status: ${response.status}, message: ${responseBody.message}`,
-          );
+          return response.json().then(body => Promise.reject(body));
         }
         return response.json();
       })
@@ -94,6 +100,31 @@ function MyPurchasesScreen() {
     }
   };
 
+  const getTitle = (filter) => {
+    switch (filter) {
+      case 'unclaimed':
+        return 'You have no unclaimed purchases';
+      case 'upcoming':
+        return 'You have no upcoming events';
+      case 'past':
+        return 'You have no passed events';
+    }
+  };
+
+  const getSubTitle = (filter) => {
+    switch (filter){
+      case 'unclaimed':
+        return 'When you make a purchase you can claim it here';
+      case 'upcoming':
+        return '';
+      case 'past':
+        return '';
+    }
+  };
+
+  const title = `${getTitle(filter)}`;
+  const subTitle = `${getSubTitle(filter)}`;
+
   return (
     <ScrollView
       style={styles.container}
@@ -104,7 +135,37 @@ function MyPurchasesScreen() {
       <View style={styles.titleContainer}>
         <Text style={styles.title}>Your Purchases</Text>
       </View>
-      {purchases && purchases.length > 0 ? (
+      <View style={styles.filterContainer}>
+        <TouchableOpacity onPress={() => handleFilterChange('unclaimed')}>
+          <Text
+            style={
+              filter === 'unclaimed' ? styles.filterTextActive : styles.filterText
+            }>
+            Unclaimed
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => handleFilterChange('upcoming')}>
+          <Text
+            style={
+              filter === 'upcoming' ? styles.filterTextActive : styles.filterText
+            }>
+            Upcoming
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => handleFilterChange('past')}>
+          <Text
+            style={
+              filter === 'past'
+                ? styles.filterTextActive
+                : styles.filterText
+            }>
+            Past
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : purchases && purchases.length > 0 ? (
         purchases.map((event, eventIndex) => (
           <View key={eventIndex}>
             <TouchableOpacity
@@ -149,11 +210,13 @@ function MyPurchasesScreen() {
                               </Text>
                               <Text style={styles.subSubListItemText}>
                                 {claimed ? (
-                                  <Text>Ticket been claimed</Text>
+                                  <Text>Ticket has been claimed</Text>
                                 ) : (
                                   <TouchableOpacity
                                     onPress={() =>
-                                      handleTransfer(ticket.purchases[purchaseId].ask_id)
+                                      handleTransfer(
+                                        ticket.purchases[purchaseId].ask_id,
+                                      )
                                     }>
                                     <Text style={styles.transferButtonText}>
                                       Claim Ticket
@@ -177,10 +240,10 @@ function MyPurchasesScreen() {
           {/*  style={styles.emptyListingsImage}*/}
           {/*/>*/}
           <Text style={styles.emptyListingsTitle}>
-            You have not made any purchases yet
+            {title}
           </Text>
           <Text style={styles.emptyListingsSubTitle}>
-            When you make a purchase, it will appear here
+            {subTitle}
           </Text>
         </View>
       )}
@@ -198,12 +261,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    marginTop: 20,
+    marginTop: 10,
     borderBottomWidth: 1,
     borderColor: '#dddddd',
     borderRadius: 5,
     backgroundColor: 'white',
-    marginVertical: 0,
+    marginVertical: 5,
   },
   listItemTextContainer: {
     flex: 1,
@@ -221,8 +284,8 @@ const styles = StyleSheet.create({
   subListItem: {
     backgroundColor: 'white',
     paddingLeft: 20,
-    paddingVertical: 0,
-    marginVertical: 0,
+    paddingVertical: 10,
+    marginVertical: 2,
     borderBottomWidth: 1,
     borderColor: '#dddddd',
   },
@@ -235,7 +298,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingLeft: 20,
+    paddingLeft: 40,
     paddingVertical: 20,
     borderTopWidth: 1,
     borderTopColor: 'lightgrey',
@@ -272,7 +335,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 10,
   },
   emptyListingsImage: {
     width: 150,
@@ -293,7 +356,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     paddingVertical: 20,
     paddingHorizontal: 10,
-    marginBottom: 10,
+    marginBottom: 0,
     borderRadius: 10,
   },
   title: {
@@ -301,6 +364,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333333',
     textAlign: 'center',
+  },
+  relistButton: {
+    backgroundColor: '#ff9800', // You can change this to any color you like
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    marginHorizontal: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  relistButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 0,
+    marginTop: 0,
+    padding: 10,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 10,
+  },
+  filterText: {
+    fontSize: 20,
+    color: 'gray',
+  },
+  filterTextActive: {
+    fontSize: 20,
+    color: 'black',
+    fontWeight: 'bold',
   },
   transferButtonText: {
     color: 'blue', // Or any color that suits your style

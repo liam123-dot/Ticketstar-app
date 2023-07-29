@@ -8,15 +8,13 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  Image,
-} from 'react-native';
-import {
-  useNavigation,
-} from '@react-navigation/native';
+  Image, ActivityIndicator
+} from "react-native";
+import {useNavigation} from '@react-navigation/native';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import {formatTimes} from "../../utilities";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import AntDesign from "react-native-vector-icons/AntDesign";
+import {formatTimes} from '../../utilities';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import AntDesign from 'react-native-vector-icons/AntDesign';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -31,8 +29,7 @@ function ListItem({title, object}) {
     }),
   );
   const handlePress = async () => {
-
-    const user_id = await AsyncStorage.getItem("user_id");
+    const user_id = await AsyncStorage.getItem('user_id');
 
     if (title == 'Events') {
       navigation.navigate('Event', {
@@ -90,11 +87,14 @@ function ListContainer({title, objects}) {
   );
 }
 
-function SearchTab({type, data}) {
+function SearchTab({type, data, loading}) {
   return (
     <View style={styles.container}>
       <ScrollView>
-        <ListContainer title={type} objects={data} />
+        {loading ? (
+            <ActivityIndicator size="large" color="#0000ff" />
+          ): (
+        <ListContainer title={type} objects={data} />)}
       </ScrollView>
     </View>
   );
@@ -108,9 +108,10 @@ function SearchScreen() {
     Organisers: null,
   });
   const [currentTab, setCurrentTab] = useState('Events');
+  const [loading, setLoading] = useState(false);
 
-  const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
-  // const apiUrl = API_URL_PROD;
+  // const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+  const apiUrl = API_URL_PROD;
 
   const handleChangeText = text => {
     setSearchText(text);
@@ -118,6 +119,7 @@ function SearchScreen() {
 
   const handleSearch = async tab => {
     if (searchText.length > 0) {
+      setLoading(true);
       let response: Response = '';
       try {
         if (tab == 'Events') {
@@ -126,9 +128,7 @@ function SearchScreen() {
 
           setData(prevData => ({...prevData, [tab]: searchResults.events}));
         } else if (tab == 'Venues') {
-          response = await fetch(
-            `${apiUrl}/search/venues?query=` + searchText,
-          );
+          response = await fetch(`${apiUrl}/search/venues?query=` + searchText);
           const searchResults = await response.json();
 
           setData(prevData => ({...prevData, [tab]: searchResults.venues}));
@@ -144,15 +144,20 @@ function SearchScreen() {
         console.log(data);
       } catch (error) {
         console.error(error);
+        setLoading(false);
       }
     }
+    setLoading(false);
   };
 
   return (
     <SafeAreaView style={{flex: 1}}>
       <View style={{flexDirection: 'row', alignItems: 'center', margin: 5}}>
         <TextInput
-          style={[styles.searchInput, {flex: 1, borderColor: '#95A1F1', borderWidth: 1}]}
+          style={[
+            styles.searchInput,
+            {flex: 1, borderColor: '#95A1F1', borderWidth: 1},
+          ]}
           placeholder="Search"
           value={searchText}
           onChangeText={handleChangeText}
@@ -161,7 +166,7 @@ function SearchScreen() {
           <Text
             style={{fontSize: 16, color: '#000'}}
             onPress={() => handleSearch(currentTab)}>
-            <AntDesign name={'search1'} size={30}/>
+            <AntDesign name={'search1'} size={30} />
           </Text>
         </TouchableOpacity>
       </View>
@@ -173,17 +178,16 @@ function SearchScreen() {
           tabBarActiveTintColor: '#000',
           tabBarInactiveTintColor: 'gray',
         }}>
-
-      <Tab.Screen
+        <Tab.Screen
           name="Events"
-          children={() => <SearchTab type="Events" data={data.Events} />}
+          children={() => <SearchTab type="Events" data={data.Events} loading={loading}/>}
           listeners={{
             focus: () => setCurrentTab('Events'),
           }}
         />
         <Tab.Screen
           name="Venues"
-          children={() => <SearchTab type="Venues" data={data.Venues} />}
+          children={() => <SearchTab type="Venues" data={data.Venues} loading={loading}/>}
           listeners={{
             focus: () => setCurrentTab('Venues'),
           }}
@@ -191,7 +195,7 @@ function SearchScreen() {
         <Tab.Screen
           name="Organisers"
           children={() => (
-            <SearchTab type="Organisers" data={data.Organisers} />
+            <SearchTab type="Organisers" data={data.Organisers} loading={loading}/>
           )}
           listeners={{
             focus: () => setCurrentTab('Organisers'),

@@ -16,8 +16,6 @@ export default function App() {
 
       const user_id = await AsyncStorage.getItem('user_id');
 
-      console.log(user_id)
-
       const sellerEnabledResponse = await fetch(
         `${apiUrl}/CheckUserConnectedAccount`,
         {
@@ -43,6 +41,8 @@ export default function App() {
         }
         console.log(sellerVerified)
         await AsyncStorage.setItem('SellerVerified', String(sellerVerified));
+      } else {
+        await AsyncStorage.setItem('SellerVerified', String(false));
       }
     };
 

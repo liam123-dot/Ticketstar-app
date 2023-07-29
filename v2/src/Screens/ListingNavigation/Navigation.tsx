@@ -31,7 +31,7 @@ function HomeTabs() {
         headerShown: false,
         tabBarStyle: {
           // backgroundColor: "#95A1F1",
-          height: 60,
+          height: '8%',
         },
         tabBarShowLabel: false,
         tabBarIcon: ({ focused, color, size }) => {
@@ -50,7 +50,7 @@ function HomeTabs() {
           // You can return any component that you like here!
           // Change the color based on whether the route is focused
           const iconColor = focused ? 'blue' : 'black';
-          return <AntDesign name={iconName} size={30} color={iconColor} style={{top:16}} />;
+          return <AntDesign name={iconName} size={30} color={iconColor} style={{top: 10}} />;
         },
       })}
     >

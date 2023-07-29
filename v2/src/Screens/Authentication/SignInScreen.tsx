@@ -69,12 +69,42 @@ const SignInScreen = () => {
           ['phone_number_verified', phone_number_verified.toString()],
         ]);
 
+        const sellerEnabledResponse = await fetch(
+          `${apiUrl}/CheckUserConnectedAccount`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              'user_id': user_id,
+            })
+          }
+        );
+
+        if (sellerEnabledResponse.ok) {
+          const data = await sellerEnabledResponse.json();
+
+          const user_has_stripe = data.user_has_stripe;
+          const action_required = data.further_action_required;
+
+          let sellerVerified;
+
+          if (!user_has_stripe || action_required) {
+            sellerVerified = false;
+          } else {
+            sellerVerified = true;
+          }
+          console.log(sellerVerified)
+          await AsyncStorage.setItem('SellerVerified', String(sellerVerified));
+        } else {
+          await AsyncStorage.setItem('SellerVerified', String(false));
+        }
+
         navigation.navigate('Home', {
           screen: 'HomeTabs',
           params: {
             screen: 'Search',
           },
         });
+
       } else {
         Alert.alert(
           'Error',
