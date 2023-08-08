@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import {CommonActions} from '@react-navigation/native';
 function PostAskScreen({navigation, route}) {
   const {
     fixr_ticket_id,
@@ -34,10 +33,14 @@ function PostAskScreen({navigation, route}) {
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
+  const [pricingID, setPricingID] = useState(null);
   const [stripeFixedFee, setStripeFixedFee] = useState(0);
   const [stripeVariableFee, setStripeVariableFee] = useState(0);
   const [platformFixedFee, setPlatformFixedFee] = useState(0);
   const [platformVariableFee, setPlatformVariableFee] = useState(0);
+  const [havePlatformFee, setHavePlatformFee] = useState(false);
+
+  const [areFeesLoaded, setAreFeesLoaded] = useState(false);
 
   const [platformFee, setPlatformFee] = useState(0);
   const [stripeFee, setStripeFee] = useState(0);
@@ -55,10 +58,21 @@ function PostAskScreen({navigation, route}) {
 
     if (response.ok){
       const data = await response.json();
+
+      setPricingID(data.pricing_id);
       setStripeFixedFee(data.stripe_fixed_fee);
       setStripeVariableFee(data.stripe_variable_fee);
       setPlatformFixedFee(data.platform_fixed_fee);
       setPlatformVariableFee(data.platform_variable_fee);
+      setAreFeesLoaded(true);
+
+      if (data.platform_fixed_fee + data.platform_variable_fee > 0){
+        setHavePlatformFee(true);
+      }
+
+    } else {
+      Alert.alert('Issue loading pricing, please try again');
+      navigation.goBack();
     }
   };
 
@@ -194,6 +208,7 @@ function PostAskScreen({navigation, route}) {
           transfer_url: transferUrl,
           price: price.slice(1, price.length),
           user_id: userId,
+          pricing_id: pricingID,
         }),
       });
     }
@@ -285,16 +300,6 @@ function PostAskScreen({navigation, route}) {
             </Text>
           </TouchableOpacity>
 
-          {/*<TouchableOpacity*/}
-          {/*  style={styles.infoButton}*/}
-          {/*  onPress={() =>*/}
-          {/*    Alert.alert(*/}
-          {/*      'Verify Ticket Ownership',*/}
-          {/*      'Once you press submit we will take the ticket into our account for holding until it is purchased.',*/}
-          {/*    )*/}
-          {/*  }>*/}
-          {/*  <Text style={styles.infoButtonText}>?</Text>*/}
-          {/*</TouchableOpacity>*/}
         </View>
       )}
 
@@ -318,13 +323,14 @@ function PostAskScreen({navigation, route}) {
           onPress={() =>
             Alert.alert(
               'Payment Processing Fee',
-              'This is the fee charged by our payment provider Stripe. We do not currently take a service fee.',
+              havePlatformFee ? 'This is the fee charged by our payment provider Stripe.':
+                'This is the fee charged by our payment provider Stripe. We do not currently take a service fee.',
             )
           }>
           <Text style={styles.infoButtonText}>?</Text>
         </TouchableOpacity>
       </View>
-      {platformFee > 0 ?
+      {havePlatformFee > 0 ?
         <Text style={styles.feeText}>Ticketstar fee: £{platformFee}</Text>: <></>}
       <Text style={styles.feeText}>You receive: £{sellerReceives}</Text>
 
@@ -338,7 +344,7 @@ function PostAskScreen({navigation, route}) {
           },
         ]}
         onPress={handleSubmit}
-        disabled={!ticketVerified || !isNumber(price)}>
+        disabled={!ticketVerified || !isNumber(price) || !areFeesLoaded}>
         <Text style={[styles.buttonText, styles.submitButtonText]}>Submit</Text>
       </TouchableOpacity>
 

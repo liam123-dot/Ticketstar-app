@@ -17,26 +17,21 @@ import InputField from './InputField';
 
 const nameValidation = /^.{2,}$/;
 
-// const emailValidation = /^[^\s@]+@exeter\.ac\.uk$/;
-const emailValidation = /^.{2,}$/;
+const emailValidation = /^[^\s@]+@exeter\.ac\.uk$/;
 
 const passwordValidation =
   /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
-
-const phoneValidation = /^\+44\d{10}$/;
 
 const SignUpScreen = ({navigation}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
 
   const [isFirstNameValid, setIsFirstNameValid] = useState(false);
   const [isLastNameValid, setIsLastNameValid] = useState(false);
   const [isEmailValid, setIsEmailValid] = useState(false);
   const [isPasswordValid, setIsPasswordValid] = useState(false);
-  const [isPhoneNumberValid, setIsPhoneNumberValid] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +43,6 @@ const SignUpScreen = ({navigation}) => {
       password,
       firstName,
       lastName,
-      phoneNumber,
     };
 
     setLoading(true);
@@ -65,14 +59,9 @@ const SignUpScreen = ({navigation}) => {
       const result = await response.json();
       if (response.ok) {
         Alert.alert('Success', 'Registration successful');
+
         navigation.navigate('ConfirmVerificationCode', {
-          email,
-          phoneNumber,
-          method: 'SMS',
-          phone_verified: false,
-          email_verified: false,
-          cognito: true,
-          from_sign_up: true,
+          email: email,
         });
       } else {
         if (response.status === 401) {
@@ -90,6 +79,12 @@ const SignUpScreen = ({navigation}) => {
 
   const signInClick = () => {
     navigation.navigate('SignIn');
+  };
+
+  const handleSetEmail = email => {
+
+    setEmail(email.toLowerCase());
+
   };
 
   return (
@@ -130,7 +125,7 @@ const SignUpScreen = ({navigation}) => {
             <InputField
               placeHolder={'Email'}
               text={email}
-              setText={setEmail}
+              setText={handleSetEmail}
               validationRegex={emailValidation}
               errorMessage={'Must be an exeter.ac.uk email'}
               onValidChange={setIsEmailValid}
@@ -146,16 +141,6 @@ const SignUpScreen = ({navigation}) => {
               onValidChange={setIsPasswordValid}
               secureEntry={true}
             />
-            <InputField
-              placeHolder={'Phone Number'}
-              text={phoneNumber}
-              setText={setPhoneNumber}
-              validationRegex={phoneValidation}
-              errorMessage={
-                'Please enter a valid british phone number starting with +44'
-              }
-              onValidChange={setIsPhoneNumberValid}
-            />
           </View>
 
           <CustomButton
@@ -165,8 +150,7 @@ const SignUpScreen = ({navigation}) => {
                 isFirstNameValid &&
                 isLastNameValid &&
                 isEmailValid &&
-                isPasswordValid &&
-                isPhoneNumberValid
+                isPasswordValid
               )
             }
             handlePress={onSubmit}

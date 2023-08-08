@@ -3,16 +3,18 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image, RefreshControl,
+  Image,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from "react-native";
+  View,
+} from 'react-native';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {formatTimes} from '../../../../../../Ticketstar_v0/src/utilities';
+import {formatTimes} from '../../utilities';
 import {useStripe} from '@stripe/stripe-react-native';
+import { convertToGMT } from "../../utilities";
 
 function ListItem({object, onSelect, isSelected}) {
   return (
@@ -22,44 +24,32 @@ function ListItem({object, onSelect, isSelected}) {
       <View style={styles.listItemTextContainer}>
         <Text style={styles.text}>{object.name}</Text>
         {object.listing ? (
-          <Text style={styles.price}>
-            £{parseFloat(object.listing.ask_price).toFixed(2)}
-          </Text>
+          <View style={{flexDirection: 'row'}}>
+            <Text
+              style={{
+                color: '#43a047',
+                fontSize: 20,
+                flex: 1
+              }}>
+              Available: {object.listing_count}
+            </Text>
+            <Text
+              style={{
+                fontWeight: 'bold',
+                alignSelf: 'flex-end',
+                color: '#43a047',
+                fontSize: 20,
+                flex: 1,
+                textAlign: 'right'
+              }}>
+              £{parseFloat(object.listing.ask_price).toFixed(2)}
+            </Text>
+          </View>
         ) : (
           <></>
         )}
-
-        {/*{*/}
-        {/*  object.listing*/}
-        {/*}*/}
-        {/*<Text style={[styles.price, styles.text]}>*/}
-        {/*  Original Price: £{object.price + object.booking_fee}*/}
-        {/*</Text>*/}
-        {/* Adding an icon here could be nice */}
       </View>
     </TouchableOpacity>
-  );
-}
-
-function ListContainer({title, objects, onSelectTicket, selectedTicketId}) {
-  return (
-    <View style={styles.listContainer}>
-      <Text style={styles.listTitle}>{title}</Text>
-      {objects && objects.length > 0 ? (
-        objects.map(object => (
-          <ListItem
-            key={object.id}
-            object={object}
-            onSelect={onSelectTicket}
-            isSelected={selectedTicketId === object.id}
-          />
-        ))
-      ) : (
-        <Text style={styles.listItem}>
-          {objects && objects.length === 0 ? `No ${title}` : 'Search to start'}
-        </Text>
-      )}
-    </View>
   );
 }
 
@@ -68,8 +58,8 @@ function EventScreen({route, navigation}) {
     route.params;
   const {initPaymentSheet, presentPaymentSheet} = useStripe();
 
-  // let apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
-  const apiUrl = API_URL_PROD;
+  let apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+  // const apiUrl = API_URL_PROD;
 
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,8 +80,6 @@ function EventScreen({route, navigation}) {
   const generatePaymentSheet = async () => {
     await initializePaymentSheet();
     setIsLoading(false);
-    await openPaymentSheet();
-    setIsLoading(false);
   };
 
   const handleBuyPress = () => {
@@ -109,7 +97,7 @@ function EventScreen({route, navigation}) {
       if (response.status === 400) {
         fetchData();
         setSelectedTicketId(null);
-        Alert.alert('Ask no longer available');
+        Alert.alert('Ticket no longer available');
       } else if (response.status === 200) {
         generatePaymentSheet();
       }
@@ -143,13 +131,16 @@ function EventScreen({route, navigation}) {
       paymentIntentClientSecret: paymentIntent,
       // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
       //methods that complete payment after a delay, like SEPA Debit and Sofort.
-      allowsDelayedPaymentMethods: true,
+      allowsDelayedPaymentMethods: false,
       defaultBillingDetails: {
         name: 'Jane Doe',
       },
     });
     if (!error) {
-      // setIsLoading(true);
+      setIsLoading(false);
+      await openPaymentSheet();
+    } else {
+      Alert.alert('There has been an unexpected error');
     }
   };
 
@@ -186,6 +177,7 @@ function EventScreen({route, navigation}) {
       );
       const event_data = await response.json();
       setEventData(event_data);
+      console.log(event_data)
 
       let tickets = {};
 
@@ -196,7 +188,6 @@ function EventScreen({route, navigation}) {
         });
 
         setTicketData(tickets);
-        console.log(tickets);
       }
 
       setIsLoading(false);
@@ -264,36 +255,6 @@ function EventScreen({route, navigation}) {
 
     if (error) {
       Alert.alert(`Error code: ${error.code}`, error.message);
-    } else {
-      setIsLoading(true);
-      fetch(`${apiUrl}/listings/fulfill`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ask_id: askId,
-          buyer_user_id: user_id,
-        }),
-      })
-        .then(async response => {
-          if (!response.ok) {
-            throw new Error('HTTP status ' + response.status);
-          }
-          return response.json();
-        })
-        .then(() => {
-          Alert.alert('Success', 'Your order is confirmed!');
-          navigation.goBack();
-          navigation.navigate('MyPurchases');
-        })
-        .catch(error => {
-          // Handle network errors.
-          Alert.alert('Unexpected error');
-          console.error(error);
-          setIsLoading(false);
-        });
-      setIsLoading(false);
     }
   };
 
@@ -337,20 +298,25 @@ function EventScreen({route, navigation}) {
           <ActivityIndicator size="large" color="#0000ff" />
         ) : (
           <>
-            <Text style={styles.title}>{name}</Text>
             <Image
               source={{uri: image_url}}
               style={styles.eventImage}
               PlaceholderContent={<ActivityIndicator />} // A placeholder component for the image
             />
+            <Text style={styles.title}>{name}</Text>
             <Text style={styles.timeText}>
-              {formatTimes(open_time, close_time)}
+              {open_time && close_time ? formatTimes(open_time, close_time) : convertToGMT(open_time)}
             </Text>
+            <Text style={{    color: '#666',
+              fontStyle: 'italic', alignSelf: 'flex-end', fontSize: 18}}>Recent searches: {eventData?.search_count}</Text>
             <Text style={styles.venueText}>{venue}</Text>
             <FlatList // Using FlatList for better performance
               data={eventData?.tickets}
               refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                />
               }
               renderItem={({item}) => (
                 <ListItem
@@ -424,9 +390,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: 'bold',
-    fontSize: 30,
+    fontSize: 24,
     color: '#4a4a4a',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   actionBar: {
     flexDirection: 'column',
@@ -476,40 +442,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   text: {
-    margin: 3,
+    margin: 0,
     fontSize: 18,
     color: '#4a4a4a',
-  },
-  price: {
-    fontWeight: 'bold',
-    alignSelf: 'flex-end',
-    color: '#43a047',
-    fontSize: 20,
   },
   listContainer: {
     marginVertical: 10,
   },
   listTitle: {
     fontWeight: 'bold',
-    fontSize: 24,
+    fontSize: 22,
     color: '#3f51b5',
     marginBottom: 10,
   },
   timeText: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#666',
     fontStyle: 'italic',
-    marginBottom: 10,
+    marginBottom: 5,
   },
   venueText: {
-    fontSize: 20,
+    fontSize: 18,
     color: '#333',
     fontWeight: 'bold',
     marginBottom: 10,
   },
   eventImage: {
     width: '100%',
-    height: 200,
+    height: '10%',
+    height: '20%',
     marginBottom: 15,
   },
 });

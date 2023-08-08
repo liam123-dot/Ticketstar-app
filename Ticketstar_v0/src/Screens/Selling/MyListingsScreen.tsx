@@ -7,12 +7,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  Linking, ActivityIndicator
+  Linking, ActivityIndicator, Alert
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
-import {formatTimes} from '../../../../../../Ticketstar_v0/src/utilities';
+import {formatTimes} from '../../utilities';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
+import {loadListings} from '../../Dataloaders'
 
 function AmendButton({
   fixr_ticket_id,
@@ -53,6 +54,8 @@ function AmendButton({
         },
       });
 
+    } else {
+      Alert.alert('Ticket not amendable', 'Someone is in the process of buying');
     }
   };
 
@@ -62,6 +65,32 @@ function AmendButton({
     </TouchableOpacity>
   );
 }
+
+const filterListings = (data, filterType) => {
+  // Filter based on ticket's fulfilled status
+  let filteredData = data.map(event => {
+    return {
+      ...event,
+      tickets: event.tickets.filter(ticket => {
+        if (filterType === 'sold') {
+          return ticket.listings.some(listing => listing.fulfilled === true);
+        } else if (filterType === 'unsold') {
+          return ticket.listings.some(listing => listing.fulfilled === false);
+        } else {
+          // For 'all' filter type or any other unexpected value
+          return true;
+        }
+      }),
+    };
+  });
+
+  // Remove events with no tickets
+  filteredData = filteredData.filter(event => event.tickets.length > 0);
+
+  return filteredData;
+};
+
+
 
 function MyListingsScreen() {
   const [listings, setListings] = useState(null);
@@ -81,7 +110,7 @@ function MyListingsScreen() {
       });
 
       if (response.status === 200) {
-        fetchData();
+        await reload();
       }
     };
 
@@ -94,52 +123,19 @@ function MyListingsScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
+    await reload();
     setRefreshing(false);
   };
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
-  const fetchData = async () => {
-    setLoading(true);
-    const user_id = await AsyncStorage.getItem('user_id');
-    const seller_verified = (await AsyncStorage.getItem("SellerVerified")) === 'true';
-    setSellerVerified(seller_verified);
+  const reload = async () => {
 
-    fetch(`${apiUrl}/listing?filter=${filter}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: user_id,
-      },
-    })
-      .then(response => response.json())
-      .then(data => {
-        data = data.info;
-        if (data != null) {
-          const expandedData = Object.keys(data).map(eventId => ({
-            ...data[eventId],
-            isExpanded: false,
-            tickets: Object.keys(data[eventId].tickets).map(ticketId => ({
-              ...data[eventId].tickets[ticketId],
-              isExpanded: false,
-            })),
-          }));
-          setListings(expandedData);
-        }
-      })
-      .catch(error => {
-        console.error('Error: ', error);
-        setLoading(false);
-      });
-    setLoading(false);
-  };
-
-  const isFocused = useIsFocused();
-
-  useEffect(() => {
-    fetchData();
-  }, [isFocused]);
+    await loadListings();
+    const storedData = JSON.parse(await AsyncStorage.getItem('UserListings'));
+    const filteredData = filterListings(storedData, filter);
+    setListings(filteredData);
+  }
 
   const toggleEventExpanded = index => {
     const newListing = [...listings];
@@ -156,13 +152,27 @@ function MyListingsScreen() {
 
   const handleFilterChange = async filter => {
     setFilter(filter);
-    // setRefreshing(true);
-    // await fetchData();
-    // setRefreshing(false);
   };
 
   useEffect(() => {
-    fetchData();
+    const checkSellerEnabled = async () => {
+
+      const sellerVerified = await AsyncStorage.getItem('SellerVerified') === 'true';
+      setSellerVerified(sellerVerified);
+
+    };
+    checkSellerEnabled();
+  }, []);
+
+  useEffect(() => {
+
+    const fetchAndFilterListings = async () => {
+      const storedData = JSON.parse(await AsyncStorage.getItem('UserListings'));
+      const filteredData = filterListings(storedData, filter);
+      setListings(filteredData);
+    };
+
+    fetchAndFilterListings();
   }, [filter]);
 
   const handleTransfer = async askId => {
@@ -201,12 +211,6 @@ function MyListingsScreen() {
         return 'When a listing sells, it will appear here';
     }
   }
-
-
-  // const subTitle =
-  // filter === 'all' || filter === 'unsold'
-  //   ? 'When you post a listing, it will appear here'
-  //   : 'When a listing sells, it will appear here';
 
   const title = `You have ${getTitle(filter)}`;
   const subTitle = `${getSubTitle(filter)}`;
@@ -253,7 +257,6 @@ function MyListingsScreen() {
       ): (
 
       sellerVerified ?
-
       listings && listings.length > 0 ? (
         listings.map((event, eventIndex) => (
           <View key={eventIndex}>

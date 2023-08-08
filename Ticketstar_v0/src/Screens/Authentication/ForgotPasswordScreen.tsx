@@ -78,9 +78,9 @@ export default function ForgotPasswordScreen({navigation}) {
           alignSelf: 'center',
         }}>
         <InputField
-          placeHolder={'Email / Phone Number'}
+          placeHolder={'Email'}
           validationRegex={combinedRegex}
-          errorMessage={'Enter a valid email or phone number'}
+          errorMessage={'Enter a valid email'}
           text={userInput}
           setText={setUserInput}
           onValidChange={setInputValid}
@@ -123,7 +123,7 @@ export default function ForgotPasswordScreen({navigation}) {
       </View>
       {!codeSent ? (
         <CustomButton
-          title={'Submit Email / Phone Number'}
+          title={'Submit Email'}
           disabled={!inputValid}
           handlePress={handleSendCode}
         />

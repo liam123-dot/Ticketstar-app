@@ -13,7 +13,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused} from '@react-navigation/native';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import {formatTimes} from '../../../../../../Ticketstar_v0/src/utilities';
+import {formatTimes} from '../../utilities';
+import {loadPurchases } from "../../Dataloaders";
 
 function MyPurchasesScreen() {
   const [purchases, setPurchases] = useState([]);
@@ -25,54 +26,55 @@ function MyPurchasesScreen() {
   // const apiUrl = API_URL_PROD;
   const handleFilterChange = newFilter => {
     setFilter(newFilter);
-    handleRefresh(newFilter); // when filter changes, fetch data again with the new filter
   };
 
   const handleRefresh = async (filter) => {
     setLoading(true);
-    await fetchData(filter); // include current filter when refreshing
+    await reload(filter); // include current filter when refreshing
     setLoading(false);
   };
 
-  const fetchData = async (filter = 'all') => {
-    const user_id = await AsyncStorage.getItem('user_id');
+  const filterPurchases = (data, filterType) => {
+    const currentTime = Date.now();
 
-    fetch(`${apiUrl}/purchases?filter=${filter}`, {
-      // pass filter as query param
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: user_id,
-      },
-    })
-      .then(response => {
-        if (!response.ok) {
-          return response.json().then(body => Promise.reject(body));
-        }
-        return response.json();
-      })
-      .then(data => {
-        data = data.info;
-        const expandedData = Object.keys(data).map(eventId => ({
-          ...data[eventId],
-          isExpanded: false,
-          tickets: Object.keys(data[eventId].tickets).map(ticketId => ({
-            ...data[eventId].tickets[ticketId],
-            isExpanded: false,
-          })),
-        }));
-        setPurchases(expandedData);
-      })
-      .catch(error => {
-        console.error('Error: ', error);
-      });
+    let filteredData = data.filter(event => {
+      console.log(event.open_time);
+      if (filterType === 'upcoming') {
+        return event.open_time * 1000 > currentTime;
+      } else if (filterType === 'past') {
+        return event.open_time * 1000 <= currentTime;
+      } else if (filterType === 'unclaimed') {
+        return event.tickets.some(ticket => ticket.purchases.some(purchase => purchase.claimed === false));
+      } else {
+        // This handles unexpected filter types by not filtering anything out
+        return true;
+      }
+    });
+
+    return filteredData;
   };
 
-  const isFocused = useIsFocused();
+
+  const reload = async () => {
+
+    await loadPurchases();
+    const storedData = JSON.parse(await AsyncStorage.getItem('UserPurchases'));
+    console.log('storedData: ' + JSON.stringify(storedData, null, 4));
+    const filteredData = filterPurchases(storedData, filter);
+    setPurchases(filteredData);
+
+  };
 
   useEffect(() => {
-    fetchData();
-  }, [isFocused]);
+
+    const fetchAndFilterPurchases = async () => {
+      const storedData = JSON.parse(await AsyncStorage.getItem('UserPurchases'));
+      const filteredData = filterPurchases(storedData, filter);
+      setPurchases(filteredData);
+    };
+
+    fetchAndFilterPurchases();
+  }, [filter]);
 
   const toggleEventExpanded = index => {
     const newPurchases = [...purchases];

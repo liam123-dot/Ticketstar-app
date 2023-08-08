@@ -2,10 +2,7 @@ import React, {useState, useEffect} from 'react';
 import {API_URL_PROD} from '@env';
 import {
   View,
-  TextInput,
   Alert,
-  TouchableOpacity,
-  Text,
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
@@ -15,7 +12,6 @@ import Logo from './Logo';
 import InputField from './InputField';
 import CustomButton from './CustomButton';
 import FinePrintButton from './FinePrintButton';
-import Icon from 'react-native-vector-icons/FontAwesome';
 
 const SignInScreen = () => {
   const navigation = useNavigation();
@@ -26,7 +22,7 @@ const SignInScreen = () => {
   const [isPasswordValid, setIsPasswordValid] = useState(false);
   const [loading, setLoading] = useState(false);
   // const emailRegex = /^[^\s@]+@exeter\.ac\.uk$/;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^.{2,}$/;
 
   const apiUrl = API_URL_PROD;
 
@@ -58,9 +54,7 @@ const SignInScreen = () => {
           first_name,
           surname,
           email,
-          phone_number,
           email_verified,
-          phone_number_verified,
         } = result.attributes;
 
         await AsyncStorage.multiSet([
@@ -68,9 +62,7 @@ const SignInScreen = () => {
           ['first_name', first_name],
           ['surname', surname],
           ['email', email],
-          ['phone_number', phone_number],
           ['email_verified', email_verified.toString()],
-          ['phone_number_verified', phone_number_verified.toString()],
         ]);
 
         const sellerEnabledResponse = await fetch(
@@ -110,20 +102,14 @@ const SignInScreen = () => {
           });
         } else {
           navigation.navigate('ConfirmVerificationCode', {
-            email: emailInput,
-            cognito: false,
-            method: 'EMAIL',
-            email_verified,
-            phone_verified: phone_number_verified,
+            email: email,
           });
         }
       } else {
         console.error(result);
         if (result.error === 'UserNotConfirmedException') {
           navigation.navigate('ConfirmVerificationCode', {
-            cognito: true,
             email: emailInput,
-            method: 'SMS',
           });
         }
         Alert.alert(
@@ -137,6 +123,12 @@ const SignInScreen = () => {
     }
     setLoading(false);
   };
+
+  const handleSetEmail = email => {
+
+    setEmail(email.toLowerCase());
+
+  }
 
   const forgotPasswordClick = () => {
     navigation.navigate('ForgotPassword');
@@ -166,7 +158,7 @@ const SignInScreen = () => {
             <InputField
               placeHolder={'Email'}
               text={emailInput}
-              setText={setEmail}
+              setText={handleSetEmail}
               validationRegex={emailRegex}
               errorMessage={'Must be an exeter.ac.uk email'}
               onValidChange={setIsEmailValid}

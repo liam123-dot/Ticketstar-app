@@ -5,7 +5,6 @@ import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {StripeProvider} from '@stripe/stripe-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import MainPage from "./src/Screens/Authentication/MainPage";
 
 enableScreens(); // ensure screens are enabled for better performance
 

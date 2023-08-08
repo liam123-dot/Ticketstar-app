@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import {useNavigation} from '@react-navigation/native';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import {formatTimes} from '../../../../../../Ticketstar_v0/src/utilities';
+import {formatTimes} from '../../utilities';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 
@@ -111,7 +111,6 @@ function SearchScreen() {
   const [loading, setLoading] = useState(false);
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
-  // const apiUrl = API_URL_PROD;
 
   const handleChangeText = text => {
     setSearchText(text);
@@ -120,25 +119,22 @@ function SearchScreen() {
   const handleSearch = async tab => {
     if (searchText.length > 0) {
       setLoading(true);
-      let response: Response = '';
       try {
-        if (tab == 'Events') {
-          response = await fetch(`${apiUrl}/search/events?query=` + searchText);
-          const searchResults = await response.json();
-
-          setData(prevData => ({...prevData, [tab]: searchResults.events}));
-        } else if (tab == 'Venues') {
-          response = await fetch(`${apiUrl}/search/venues?query=` + searchText);
-          const searchResults = await response.json();
-
-          setData(prevData => ({...prevData, [tab]: searchResults.venues}));
+        if (tab === 'Events') {
+          searchEvents();
+          setLoading(false);
+          searchVenues();
+          searchOrganisers();
+        } else if (tab === 'Venues') {
+          searchVenues();
+          setLoading(false);
+          searchEvents();
+          searchOrganisers();
         } else {
-          response = await fetch(
-            `${apiUrl}/search/organisers?query=` + searchText,
-          );
-          const searchResults = await response.json();
-
-          setData(prevData => ({...prevData, [tab]: searchResults.organisers}));
+          searchOrganisers();
+          setLoading(false);
+          searchEvents();
+          searchVenues();
         }
 
         console.log(data);
@@ -149,6 +145,35 @@ function SearchScreen() {
     }
     setLoading(false);
   };
+
+  const searchEvents = async () => {
+
+    response = await fetch(`${apiUrl}/search/events?query=` + searchText);
+    const searchResults = await response.json();
+
+    setData(prevData => ({...prevData, ['Events']: searchResults.events}));
+
+  };
+
+  const searchVenues = async () => {
+
+    response = await fetch(`${apiUrl}/search/venues?query=` + searchText);
+    const searchResults = await response.json();
+
+    setData(prevData => ({...prevData, ['Venues']: searchResults.venues}));
+
+  }
+
+  const searchOrganisers = async () => {
+
+    response = await fetch(
+      `${apiUrl}/search/organisers?query=` + searchText,
+    );
+    const searchResults = await response.json();
+
+    setData(prevData => ({...prevData, ['Organisers']: searchResults.organisers}));
+
+  }
 
   return (
     <SafeAreaView style={{flex: 1}}>
