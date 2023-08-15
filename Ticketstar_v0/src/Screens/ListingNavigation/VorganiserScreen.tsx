@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -9,8 +10,9 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {API_URL_LOCAL, API_URL_PROD} from '@env';
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import {convertToGMT} from "../../utilities";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {convertToGMT} from '../../utilities';
+import { BackButton } from "../BackButton";
 
 function ListItem({title, object}) {
   const navigation = useNavigation();
@@ -58,40 +60,57 @@ function ListContainer({title, objects}) {
   );
 }
 
-function VorganiserScreen({route}) {
+function VorganiserScreen({navigation, route}) {
   const {fixr_id, name, image_url, city, slug} = route.params;
   const [events, setEvents] = useState(null);
+  const [loading, setLoading] = useState(false);
   let title = city == null ? 'Organiser' : 'Venue';
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
+  const fetchData = async () => {
+    const url =
+      title === 'Organiser'
+        ? `${apiUrl}/search/organiser?slug=${slug}&organiser_id=${fixr_id}`
+        : `${apiUrl}/search/venue/${fixr_id}`;
+
+    setLoading(true);
+
+    const response = await fetch(url);
+
+    const data = await response.json();
+
+    setEvents(data.events);
+
+    setLoading(false);
+  };
+
   useEffect(() => {
-
-    const fetchData = async () => {
-      const url =
-        title === 'Organiser'
-          ? `${apiUrl}/search/organiser?slug=${slug}&organiser_id=${fixr_id}`
-          : `${apiUrl}/search/venue/${fixr_id}`;
-
-      const response = await fetch(url);
-
-      const data = await response.json();
-
-      console.log(data);
-
-      setEvents(data.events);
-
-    };
-
     fetchData();
-
   }, []);
 
   return (
     <ScrollView style={styles.container}>
+      <BackButton navigation={navigation} goBack={true} styles={{
+        color: 'white',
+        position: 'absolute',
+        top: 10,  // adjust based on your layout
+        left: 10, // adjust based on your layout
+        padding: 5,  // padding for a larger touch area
+        borderRadius: 25, // circular touch area
+        backgroundColor: 'rgba(0, 0, 0, 0.5)'
+      }}/>
+      <Image
+        source={{uri: image_url}}
+        style={styles.eventImage}
+        PlaceholderContent={<ActivityIndicator />} // A placeholder component for the image
+      />
       <Text style={styles.screenTitle}>{name}</Text>
-      {(title === 'Organiser' || title === 'Venue') && events && (
-        <ListContainer title="Events:" objects={events} />
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : (
+        (title === 'Organiser' || title === 'Venue') &&
+        events && <ListContainer title="Events:" objects={events} />
       )}
     </ScrollView>
   );
@@ -100,59 +119,73 @@ function VorganiserScreen({route}) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f7f7f7',
+    paddingHorizontal: 15,
+    paddingTop: 20,
   },
   screenTitle: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginVertical: 20, // increase the margin
-    color: '#2C3E50', // add a distinct color
+    marginVertical: 15,
+    color: '#34495E',
   },
   listContainer: {
-    paddingHorizontal: 10,
+    padding: 15,
+    marginTop: 10,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
   },
   listTitle: {
-    fontSize: 20, // increase the font size slightly
-    fontWeight: '700', // making it slightly less bold compared to the main title
+    fontSize: 24,
+    fontWeight: '600',
     marginBottom: 10,
-    paddingVertical: 5, // add vertical padding
-    paddingHorizontal: 10, // add horizontal padding
-    backgroundColor: '#f0f0f0', // background color for the title
-    color: '#333333', // font color
+    color: '#2C3E50',
   },
   listItem: {
-    marginVertical: 5,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    borderBottomWidth: 1, // less prominent bottom border
-    borderColor: '#dddddd', // lighter color for the border
-    borderRadius: 5,
-    backgroundColor: 'white',
+    borderBottomWidth: 0.5,
+    borderColor: '#E0E0E0',
   },
   listItemTitle: {
-    fontSize: 16, // a smaller font size for list item title
-    fontWeight: '500', // less bold compared to section title
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#333',
   },
   listItemImage: {
-    width: 60,
-    height: 60,
-    marginRight: 10,
-    borderRadius: 30,
+    width: 70,
+    height: 70,
+    marginLeft: 15,
+    borderRadius: 35,
   },
   listItemTextContainer: {
     flex: 1,
+    marginRight: 10,  // Adjusting to give space between text and image
   },
   listItemOpenTime: {
-    color: '#666',
-    fontSize: 14,
+    color: '#7f8c8d',
+    fontSize: 15,
+    marginTop: 5, // a slight margin to separate from the title
   },
   noItems: {
     fontSize: 18,
     textAlign: 'center',
-    marginVertical: 10,
-    color: 'gray',
+    marginTop: 15,
+    marginBottom: 15,
+    color: '#bdc3c7',
+  },
+  eventImage: {
+    width: '100%',
+    height: 200,  // Fixing the height to be consistent
+    borderRadius: 15,
+    marginBottom: 20,
+    resizeMode: 'cover', // to make sure the image covers the defined width and height
   },
 });
 

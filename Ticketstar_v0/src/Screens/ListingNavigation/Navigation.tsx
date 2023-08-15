@@ -13,11 +13,11 @@ import VorganiserScreen from './VorganiserScreen';
 import PostAskScreen from '../Selling/PostAskScreen';
 import SettingsScreen from '../SettingsScreen';
 import MyListingsScreen from '../Selling/MyListingsScreen';
-import BuyingScreen from '../Buying/BuyingScreen';
 import MyPurchasesScreen from '../Buying/MyPurchasesScreen';
 import MainPage from "../Authentication/MainPage";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import ForgotPasswordScreen from "../Authentication/ForgotPasswordScreen";
+import PaymentScreen from "../Buying/PaymentScreen";
 
 const MainStack = createStackNavigator();
 const HomeStack = createStackNavigator();
@@ -70,7 +70,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="Event" component={EventScreen} />
       <HomeStack.Screen name="Vorganiser" component={VorganiserScreen} />
       <HomeStack.Screen name="Post Ask" component={PostAskScreen} />
-      <HomeStack.Screen name="Buy" component={BuyingScreen} />
+      <HomeStack.Screen name="Payment Screen" component={PaymentScreen}/>
     </HomeStack.Navigator>
   );
 }

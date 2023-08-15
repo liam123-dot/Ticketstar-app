@@ -62,6 +62,14 @@ function ListItem({title, object}) {
               {formatTimes(object.open_time, object.close_time)}
             </Text>
           )}
+          {object.has_listings ?
+            (<Text
+            style={{
+              color: '#43a047',
+              fontWeight: 'bold',
+            }}
+            >Tickets Available</Text>): <></>
+          }
         </View>
         <Image source={{uri: object.image_url}} style={styles.listItemImage} />
       </View>
@@ -121,23 +129,19 @@ function SearchScreen() {
       setLoading(true);
       try {
         if (tab === 'Events') {
-          searchEvents();
-          setLoading(false);
+          await searchEvents();
           searchVenues();
           searchOrganisers();
         } else if (tab === 'Venues') {
-          searchVenues();
-          setLoading(false);
+          await searchVenues();
           searchEvents();
           searchOrganisers();
         } else {
-          searchOrganisers();
-          setLoading(false);
+          await searchOrganisers();
           searchEvents();
           searchVenues();
         }
 
-        console.log(data);
       } catch (error) {
         console.error(error);
         setLoading(false);

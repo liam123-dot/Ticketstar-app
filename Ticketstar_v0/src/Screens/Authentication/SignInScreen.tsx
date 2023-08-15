@@ -5,13 +5,17 @@ import {
   Alert,
   SafeAreaView,
   ActivityIndicator,
-} from 'react-native';
+  TouchableWithoutFeedback, Keyboard, Text
+} from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import Logo from './Logo';
 import InputField from './InputField';
 import CustomButton from './CustomButton';
 import FinePrintButton from './FinePrintButton';
+import { loadListings, loadPurchases } from "../../Dataloaders";
+import { BackButton } from "../BackButton";
+import { CheckSellerVerified } from "../../CheckSellerVerified";
 
 const SignInScreen = () => {
   const navigation = useNavigation();
@@ -21,8 +25,7 @@ const SignInScreen = () => {
   const [isEmailValid, setIsEmailValid] = useState(false);
   const [isPasswordValid, setIsPasswordValid] = useState(false);
   const [loading, setLoading] = useState(false);
-  // const emailRegex = /^[^\s@]+@exeter\.ac\.uk$/;
-  const emailRegex = /^.{2,}$/;
+  const emailRegex: RegExp = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
   const apiUrl = API_URL_PROD;
 
@@ -65,35 +68,11 @@ const SignInScreen = () => {
           ['email_verified', email_verified.toString()],
         ]);
 
-        const sellerEnabledResponse = await fetch(
-          `${apiUrl}/CheckUserConnectedAccount`,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              user_id: user_id,
-            }),
-          },
-        );
-
-        if (sellerEnabledResponse.ok) {
-          const data = await sellerEnabledResponse.json();
-
-          const user_has_stripe = data.user_has_stripe;
-          const action_required = data.further_action_required;
-
-          let sellerVerified;
-
-          if (!user_has_stripe || action_required) {
-            sellerVerified = false;
-          } else {
-            sellerVerified = true;
-          }
-          await AsyncStorage.setItem('SellerVerified', String(sellerVerified));
-        } else {
-          await AsyncStorage.setItem('SellerVerified', String(false));
-        }
+        CheckSellerVerified();
 
         if (email_verified === 'true') {
+          loadListings();
+          loadPurchases();
           navigation.navigate('Home', {
             screen: 'HomeTabs',
             params: {
@@ -135,56 +114,59 @@ const SignInScreen = () => {
   };
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-      <Logo />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <SafeAreaView
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+        <BackButton navigation={navigation} params={'MainPage'}/>
+        <Logo />
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <>
-          <View
-            style={{
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '75%',
-              bottom: '2%',
-            }}>
-            <InputField
-              placeHolder={'Email'}
-              text={emailInput}
-              setText={handleSetEmail}
-              validationRegex={emailRegex}
-              errorMessage={'Must be an exeter.ac.uk email'}
-              onValidChange={setIsEmailValid}
+        {loading ? (
+          <ActivityIndicator size="large" color="#0000ff" />
+        ) : (
+          <>
+            <View
+              style={{
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '75%',
+                bottom: '2%',
+              }}>
+              <InputField
+                placeHolder={'Email'}
+                text={emailInput}
+                setText={handleSetEmail}
+                validationRegex={emailRegex}
+                errorMessage={'Please enter a valid email'}
+                onValidChange={setIsEmailValid}
+              />
+              <InputField
+                placeHolder={'Password'}
+                text={password}
+                setText={setPassword}
+                onValidChange={setIsPasswordValid}
+                secureEntry={true}
+              />
+            </View>
+
+            <CustomButton
+              title={'Log In'}
+              disabled={!(isEmailValid && isPasswordValid)}
+              handlePress={onSubmit}
             />
-            <InputField
-              placeHolder={'Password'}
-              text={password}
-              setText={setPassword}
-              onValidChange={setIsPasswordValid}
-              secureEntry={true}
+
+            <FinePrintButton
+              title={'Forgot Password?'}
+              handlePress={forgotPasswordClick}
             />
-          </View>
-
-          <CustomButton
-            title={'Log In'}
-            disabled={!(isEmailValid && isPasswordValid)}
-            handlePress={onSubmit}
-          />
-
-          <FinePrintButton
-            title={'Forgot Password?'}
-            handlePress={forgotPasswordClick}
-          />
-        </>
-      )}
-    </SafeAreaView>
+          </>
+        )}
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 };
 

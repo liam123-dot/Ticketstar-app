@@ -1,13 +1,13 @@
 import React, {useEffect, useState} from 'react';
 import {
   Alert,
-  Linking,
-  SafeAreaView,
+  Linking, RefreshControl,
+  SafeAreaView, ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from 'react-native';
+  View
+} from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useNavigation} from '@react-navigation/native';
 import {API_URL_LOCAL, API_URL_PROD} from '@env';
@@ -20,7 +20,7 @@ function SettingsScreen() {
   const [firstName, setFirstName] = useState(null);
   const [surname, setSurname] = useState(null);
 
-  const [setupLink, setSetupLink] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
   // const apiUrl = API_URL_PROD;
@@ -41,6 +41,10 @@ function SettingsScreen() {
 
   };
 
+  const handleRefresh = () => {
+
+  }
+
   useEffect(() => {
     loadDetails();
   });
@@ -52,6 +56,8 @@ function SettingsScreen() {
       'surname',
       'email',
       'email_verified',
+      'UserListings',
+      'UserPurchases',
     ]);
 
     navigation.navigate('MainPage');
@@ -89,46 +95,28 @@ function SettingsScreen() {
 
       const link = data.link;
 
-      console.log(link);
-
       if (response.ok) {
 
         if (link == null) {
           await AsyncStorage.setItem('SellerVerified', String(true));
-          setSetupLink('');
+          return false;
         } else {
-          setSetupLink(link);
+          return link
         }
       }
 
     };
 
-    // if (setupLink === null) {
+    setRefreshing(true);
+    const setupUrl = await getSetupUrl();
+    setRefreshing(false);
 
-    Alert.alert(
-      'Creating a Stripe account',
-      'This is a one time process. We have prefilled most of the required information',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Continue',
-          onPress: async () => {
-            if (setupLink !== '') {
-              await Linking.openURL(setupLink);
-            }
-          },
-        },
-      ],
-    );
-
-    getSetupUrl();
-
-    // } else {
-    //   await Linking.openURL(setupLink);
-    // }
+    if (setupUrl){
+      await Linking.openURL(setupUrl);
+    } else {
+      await AsyncStorage.setItem('SellerVerified', String(true));
+      Alert.alert('You already have a Stripe account');
+    }
 
   };
 
@@ -137,14 +125,19 @@ function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        // include the RefreshControl component in ScrollView
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+      }>
       <View style={styles.settingsItem}>
         <Text style={styles.detailHeader}>First Name</Text>
         <Text style={styles.detailContent}>{firstName}</Text>
       </View>
 
       <View style={styles.settingsItem}>
-        <Text style={styles.detailHeader}>Surname</Text>
+        <Text style={styles.detailHeader}>Last Name</Text>
         <Text style={styles.detailContent}>{surname}</Text>
       </View>
 
@@ -159,6 +152,16 @@ function SettingsScreen() {
             style={[styles.button, {backgroundColor: '#43a047'}]}
             onPress={becomeSeller}>
             <Text style={styles.signOutText}>Become a Seller</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={() =>
+              Alert.alert(
+                'Creating a Stripe Account',
+                'We use Stripe to take payments from buyer, and payout to sellers. This is a one time process. We have prefilled most of the required information',
+              )
+            }>
+            <Text style={styles.infoButtonText}>?</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -176,7 +179,7 @@ function SettingsScreen() {
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScrollView>
   );
 }
 
@@ -222,6 +225,19 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     fontSize: 16,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  infoButton: {
+    width: 25,
+    height: 25,
+    borderRadius: 15,
+    backgroundColor: '#95A1F1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  infoButtonText: {
     color: '#fff',
     fontWeight: 'bold',
   },

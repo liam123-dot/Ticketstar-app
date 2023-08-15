@@ -13,75 +13,38 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused, useNavigation} from '@react-navigation/native';
 import {formatTimes} from '../../utilities';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import {loadListings} from '../../Dataloaders'
-
-function AmendButton({
-  fixr_ticket_id,
-  fixr_event_id,
-  ticket_name,
-  event_name,
-  ask_id,
-  current_price,
-}) {
-  const navigation = useNavigation();
-
-  const handlePress = async () => {
-    const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
-
-    const response = await fetch(`${apiUrl}/CheckListingEditable/${ask_id}`, {
-
-      method: 'GET',
-
-    });
-
-    if (response.ok) {
-
-      const data = await response.json();
-
-      const reserve_timeout = data.reserve_timeout;
-
-      navigation.navigate('HomeStack', {
-        screen: 'Post Ask',
-        params: {
-          fixr_ticket_id: fixr_ticket_id,
-          fixr_event_id: fixr_event_id,
-          ticket_name: ticket_name,
-          event_name: event_name,
-          ticket_verified: true,
-          ask_id: ask_id,
-          current_price: current_price,
-          reserve_timeout: reserve_timeout,
-        },
-      });
-
-    } else {
-      Alert.alert('Ticket not amendable', 'Someone is in the process of buying');
-    }
-  };
-
-  return (
-    <TouchableOpacity onPress={handlePress} style={styles.amendButton}>
-      <Text style={styles.amendButtonText}>Amend</Text>
-    </TouchableOpacity>
-  );
-}
+import {loadListings} from '../../Dataloaders';
 
 const filterListings = (data, filterType) => {
   // Filter based on ticket's fulfilled status
-  let filteredData = data.map(event => {
-    return {
-      ...event,
-      tickets: event.tickets.filter(ticket => {
+  if (filterType === 'all'){
+    return data;
+  }
+
+  let filteredData = data.filter(event => {
+
+    event.tickets = event.tickets.filter((ticket) => {
+
+      ticket.listings = ticket.listings.filter((listing) => {
+
         if (filterType === 'sold') {
-          return ticket.listings.some(listing => listing.fulfilled === true);
-        } else if (filterType === 'unsold') {
-          return ticket.listings.some(listing => listing.fulfilled === false);
+
+          return listing.fulfilled;
+
         } else {
-          // For 'all' filter type or any other unexpected value
-          return true;
+
+          return !listing.fulfilled;
+
         }
-      }),
-    };
+
+      })
+
+      return ticket.listings.length > 0;
+
+    })
+
+    return event.tickets.length > 0;
+
   });
 
   // Remove events with no tickets
@@ -99,8 +62,64 @@ function MyListingsScreen() {
   const [sellerVerified, setSellerVerified] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  function AmendButton({
+                         fixr_ticket_id,
+                         fixr_event_id,
+                         ticket_name,
+                         event_name,
+                         ask_id,
+                         current_price,
+                       }) {
+    const navigation = useNavigation();
+
+    const handlePress = async () => {
+      const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+
+      setLoading(true);
+
+      const response = await fetch(`${apiUrl}/CheckListingEditable/${ask_id}`, {
+
+        method: 'GET',
+
+      });
+
+      if (response.ok) {
+
+        const data = await response.json();
+
+        const reserve_timeout = data.reserve_timeout;
+
+        navigation.navigate('HomeStack', {
+          screen: 'Post Ask',
+          params: {
+            fixr_ticket_id: fixr_ticket_id,
+            fixr_event_id: fixr_event_id,
+            ticket_name: ticket_name,
+            event_name: event_name,
+            ticket_verified: true,
+            ask_id: ask_id,
+            current_price: current_price,
+            reserve_timeout: reserve_timeout,
+          },
+        });
+
+      } else {
+        Alert.alert('Ticket not amendable', 'Someone is in the process of buying');
+        reload();
+      }
+      setLoading(false);
+    };
+
+    return (
+      <TouchableOpacity onPress={handlePress} style={styles.amendButton}>
+        <Text style={styles.amendButtonText}>Amend</Text>
+      </TouchableOpacity>
+    );
+  }
+
   const RelistButton = ({ask_id}) => {
     const handlePress = async () => {
+      setRefreshing(true);
       // Your fetch call here
       const response = await fetch(`${apiUrl}/listing/relist`, {
         method: 'PUT',
@@ -112,6 +131,7 @@ function MyListingsScreen() {
       if (response.status === 200) {
         await reload();
       }
+      setRefreshing(false);
     };
 
     return (
@@ -129,12 +149,17 @@ function MyListingsScreen() {
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
-  const reload = async () => {
-
-    await loadListings();
+  const filterData = async () => {
     const storedData = JSON.parse(await AsyncStorage.getItem('UserListings'));
     const filteredData = filterListings(storedData, filter);
     setListings(filteredData);
+  }
+
+  const reload = async () => {
+
+    await loadListings();
+    await filterData();
+
   }
 
   const toggleEventExpanded = index => {
@@ -155,6 +180,7 @@ function MyListingsScreen() {
   };
 
   useEffect(() => {
+    filterData();
     const checkSellerEnabled = async () => {
 
       const sellerVerified = await AsyncStorage.getItem('SellerVerified') === 'true';
@@ -176,7 +202,14 @@ function MyListingsScreen() {
   }, [filter]);
 
   const handleTransfer = async askId => {
-    const response = await fetch(`${apiUrl}/transfers/${askId}`);
+    setRefreshing(true);
+    const userId = await AsyncStorage.getItem('user_id');
+    const response = await fetch(`${apiUrl}/transfers/${askId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        'user_id': userId,
+      })
+    });
     const body = await response.json();
 
     if (response.ok) {
@@ -185,7 +218,12 @@ function MyListingsScreen() {
       Linking.openURL(transferUrl);
     } else {
       console.error('Failed to fetch transfer URL: ', body);
+      if (body.reason === 'TicketNoLongerAvailable'){
+        Alert.alert('Ticket no longer available to claim');
+        reload();
+      }
     }
+    setRefreshing(false);
   };
 
   const getTitle = (filter) => {
@@ -220,7 +258,7 @@ function MyListingsScreen() {
       style={styles.container}
       refreshControl={
         // include the RefreshControl component in ScrollView
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={'black'}/>
       }>
       <View style={styles.titleContainer}>
         <Text style={styles.title}>Your Listings</Text>
@@ -361,7 +399,7 @@ function MyListingsScreen() {
         Proceed to settings to become a seller
       </Text>
           <Text style={styles.emptyListingsSubTitle}>
-            Once you list your first event it will appear here
+            Once you list your first ticket it will appear here
           </Text>
     </View>)
 

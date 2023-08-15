@@ -4,7 +4,8 @@ import {enableScreens} from 'react-native-screens';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {StripeProvider} from '@stripe/stripe-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {API_URL_PROD, API_URL_LOCAL} from '@env';
+import {loadPurchases, loadListings} from './src/Dataloaders';
+import {API_URL_PROD, API_URL_LOCAL, PUBLISHABLE_STRIPE_KEY} from '@env';
 
 enableScreens(); // ensure screens are enabled for better performance
 
@@ -18,11 +19,11 @@ export default function App() {
       const sellerEnabledResponse = await fetch(
         `${apiUrl}/CheckUserConnectedAccount`,
         {
-          method: "POST",
+          method: 'POST',
           body: JSON.stringify({
-            'user_id': user_id,
-          })
-        }
+            user_id: user_id,
+          }),
+        },
       );
 
       if (sellerEnabledResponse.ok) {
@@ -38,22 +39,22 @@ export default function App() {
         } else {
           sellerVerified = true;
         }
-        console.log(sellerVerified)
         await AsyncStorage.setItem('SellerVerified', String(sellerVerified));
-      } else {
-        await AsyncStorage.setItem('SellerVerified', String(false));
       }
     };
 
     loadData();
-
+    loadListings();
+    loadPurchases();
   }, []);
+
 
   return (
     <StripeProvider
       publishableKey={
-        'pk_test_51NJwFSDXdklEKm0R8JRHkohXh2qEKG57G837zZCKOUFXlyjTNkHa2XOSUa0zhN2rQaVkd9NPTykrdC9IRnoBlZ7Z00uMUWz549'
-      }>
+        PUBLISHABLE_STRIPE_KEY
+      }
+      merchantIdentifier={'merchant.com.ticketstar'}>
       <SafeAreaProvider>
         <SafeAreaView style={{flex: 1}}>
           <Navigation />

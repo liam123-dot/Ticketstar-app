@@ -13,8 +13,8 @@ import {
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {formatTimes} from '../../utilities';
-import {useStripe} from '@stripe/stripe-react-native';
 import { convertToGMT } from "../../utilities";
+import { BackButton } from "../BackButton";
 
 function ListItem({object, onSelect, isSelected}) {
   return (
@@ -29,7 +29,7 @@ function ListItem({object, onSelect, isSelected}) {
               style={{
                 color: '#43a047',
                 fontSize: 20,
-                flex: 1
+                flex: 1,
               }}>
               Available: {object.listing_count}
             </Text>
@@ -40,7 +40,7 @@ function ListItem({object, onSelect, isSelected}) {
                 color: '#43a047',
                 fontSize: 20,
                 flex: 1,
-                textAlign: 'right'
+                textAlign: 'right',
               }}>
               £{parseFloat(object.listing.ask_price).toFixed(2)}
             </Text>
@@ -56,7 +56,6 @@ function ListItem({object, onSelect, isSelected}) {
 function EventScreen({route, navigation}) {
   const {fixr_id, name, image_url, venue, open_time, close_time, user_id} =
     route.params;
-  const {initPaymentSheet, presentPaymentSheet} = useStripe();
 
   let apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
   // const apiUrl = API_URL_PROD;
@@ -77,70 +76,61 @@ function EventScreen({route, navigation}) {
   const [askId, setAskId] = useState(null);
   const [price, setPrice] = useState(null);
 
-  const generatePaymentSheet = async () => {
-    await initializePaymentSheet();
-    setIsLoading(false);
-  };
-
   const handleBuyPress = () => {
-    setIsLoading(true);
-    const navigate = async () => {
-      const response = await fetch(apiUrl + '/listings/reserve', {
-        method: 'POST',
-        body: JSON.stringify({
-          user_id: user_id,
-          ask_id: askId,
-          price: price,
-        }),
-      });
+    if (!ticketData[selectedTicketId].listing.purchasable){
+      Alert.alert('You cannot purchase your own listing');
+    } else {
+      setIsLoading(true);
+      const navigate = async () => {
+        const response = await fetch(apiUrl + '/listings/reserve', {
+          method: 'POST',
+          body: JSON.stringify({
+            user_id: user_id,
+            ask_id: askId,
+            price: price,
+          }),
+        });
 
-      if (response.status === 400) {
-        fetchData();
-        setSelectedTicketId(null);
-        Alert.alert('Ticket no longer available');
-      } else if (response.status === 200) {
-        generatePaymentSheet();
+        const data = await response.json();
+
+        if (response.status === 400) {
+          fetchData();
+          setSelectedTicketId(null);
+
+          if (data.reason === 'ListingFulfilled') {
+            Alert.alert('Listing no longer available');
+          } else if (data.reason === 'NotPurchasableBySeller') {
+            Alert.alert('You cannot purchase your own listing');
+          }
+        } else if (response.status === 200) {
+          setIsLoading(false);
+          const reserveTimeout = data.reserve_timeout;
+
+          navigation.navigate('Payment Screen', {
+            price,
+            askId,
+            reserveTimeout,
+            eventName: name,
+            ticketName: ticketData[selectedTicketId].name,
+          });
+        }
+      };
+
+      if (!cheapest) {
+        Alert.alert(
+          'You are selling this ticket for a lower price',
+          'Are you sure you want to continue',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            { text: 'Yes', onPress: () => navigate() },
+          ],
+        );
+      } else {
+        navigate();
       }
-    };
-
-    if (!cheapest) {
-      Alert.alert(
-        'You are selling this ticket for a lower price',
-        'Are you sure you want to continue',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {text: 'Yes', onPress: () => navigate()},
-        ],
-      );
-    } else {
-      navigate();
-    }
-  };
-
-  const initializePaymentSheet = async () => {
-    const {paymentIntent, ephemeralKey, customer, publishableKey} =
-      await fetchPaymentSheetParams();
-
-    const {error} = await initPaymentSheet({
-      merchantDisplayName: 'Ticketstar',
-      customerId: customer,
-      customerEphemeralKeySecret: ephemeralKey,
-      paymentIntentClientSecret: paymentIntent,
-      // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
-      //methods that complete payment after a delay, like SEPA Debit and Sofort.
-      allowsDelayedPaymentMethods: false,
-      defaultBillingDetails: {
-        name: 'Jane Doe',
-      },
-    });
-    if (!error) {
-      setIsLoading(false);
-      await openPaymentSheet();
-    } else {
-      Alert.alert('There has been an unexpected error');
     }
   };
 
@@ -168,16 +158,16 @@ function EventScreen({route, navigation}) {
     await fetchData();
   };
 
-  const fetchData = async () => {
+  const fetchData = async refreshing => {
     setIsLoading(true);
     try {
+      const api = refreshing ? `/search/event/${fixr_id}?user_id=${user_id}&refreshing=true`: `/search/event/${fixr_id}?user_id=${user_id}`;
       const response = await fetch(
-        apiUrl + `/search/event/${fixr_id}?user_id=${user_id}`,
+        apiUrl + api,
         {method: 'GET'},
       );
       const event_data = await response.json();
       setEventData(event_data);
-      console.log(event_data)
 
       let tickets = {};
 
@@ -206,56 +196,8 @@ function EventScreen({route, navigation}) {
   const handleRefresh = async () => {
     setRefreshing(true);
     setSelectedTicketId(null);
-    await fetchData();
+    await fetchData(true);
     setRefreshing(false);
-  };
-
-  const fetchPaymentSheetParams = async () => {
-    const email = await AsyncStorage.getItem('email');
-    const first_name = await AsyncStorage.getItem('first_name');
-    const surname = await AsyncStorage.getItem('surname');
-    const phone_number = await AsyncStorage.getItem('phone_number');
-    const user_id = await AsyncStorage.getItem('user_id');
-
-    const name = first_name + ' ' + surname;
-
-    try {
-      const response = await fetch(`${apiUrl}/payment-sheet`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          price: price,
-          user_email: email,
-          user_phone_number: phone_number,
-          user_name: name,
-          user_id: user_id,
-          ask_id: askId,
-        }),
-      });
-
-      const response_data = await response.json();
-
-      const {paymentIntent, ephemeralKey, customer} = response_data;
-
-      return {
-        paymentIntent,
-        ephemeralKey,
-        customer,
-      };
-    } catch (error) {
-      console.error(error);
-      Alert.alert('Network Error', 'Failed to fetch payment sheet params.');
-    }
-  };
-
-  const openPaymentSheet = async () => {
-    const {error} = await presentPaymentSheet();
-
-    if (error) {
-      Alert.alert(`Error code: ${error.code}`, error.message);
-    }
   };
 
   useEffect(() => {
@@ -283,7 +225,7 @@ function EventScreen({route, navigation}) {
 
   const resetValues = refreshing => {
     setBuyButtonTitle(
-      refreshing ? 'No Ticket Selected' : 'No Tickets for Sale',
+      refreshing ? 'No Ticket Selected' : 'No Tickets',
     );
     setBuyButtonDisabled(true);
     setCheapest(null);
@@ -298,35 +240,48 @@ function EventScreen({route, navigation}) {
           <ActivityIndicator size="large" color="#0000ff" />
         ) : (
           <>
-            <Image
-              source={{uri: image_url}}
-              style={styles.eventImage}
-              PlaceholderContent={<ActivityIndicator />} // A placeholder component for the image
-            />
-            <Text style={styles.title}>{name}</Text>
-            <Text style={styles.timeText}>
-              {open_time && close_time ? formatTimes(open_time, close_time) : convertToGMT(open_time)}
-            </Text>
-            <Text style={{    color: '#666',
-              fontStyle: 'italic', alignSelf: 'flex-end', fontSize: 18}}>Recent searches: {eventData?.search_count}</Text>
-            <Text style={styles.venueText}>{venue}</Text>
-            <FlatList // Using FlatList for better performance
-              data={eventData?.tickets}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={handleRefresh}
-                />
-              }
-              renderItem={({item}) => (
-                <ListItem
-                  object={item}
-                  onSelect={setSelectedTicketId}
-                  isSelected={selectedTicketId === item.id}
-                />
-              )}
-              keyExtractor={item => item.id}
-            />
+            <BackButton navigation={navigation} goBack={true} styles={{
+              color: 'white',
+              position: 'absolute',
+              top: 10,  // adjust based on your layout
+              left: 10, // adjust based on your layout
+              padding: 5,  // padding for a larger touch area
+              borderRadius: 25, // circular touch area
+              backgroundColor: 'rgba(0, 0, 0, 0.5)'
+            }}/>
+            {/*<View style={{*/}
+            {/*  top: '5%'*/}
+            {/*}}>*/}
+              <Image
+                source={{uri: image_url}}
+                style={styles.eventImage}
+                PlaceholderContent={<ActivityIndicator />} // A placeholder component for the image
+              />
+              <Text style={styles.title}>{name}</Text>
+              <Text style={styles.timeText}>
+                {open_time && close_time ? formatTimes(open_time, close_time) : convertToGMT(open_time)}
+              </Text>
+              <Text style={{    color: '#666',
+                fontStyle: 'italic', alignSelf: 'flex-end', fontSize: 18}}>Recent searches: {eventData?.search_count ? eventData.search_count: '0'}</Text>
+              <Text style={styles.venueText}>{venue}</Text>
+              <FlatList // Using FlatList for better performance
+                data={eventData?.tickets}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                  />
+                }
+                renderItem={({item}) => (
+                  <ListItem
+                    object={item}
+                    onSelect={setSelectedTicketId}
+                    isSelected={selectedTicketId === item.id}
+                  />
+                )}
+                keyExtractor={item => item.id}
+              />
+            {/*</View>*/}
           </>
         )}
       </View>
@@ -386,7 +341,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 15,
+    padding: '2%',
   },
   title: {
     fontWeight: 'bold',

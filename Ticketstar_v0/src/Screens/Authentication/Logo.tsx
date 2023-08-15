@@ -10,7 +10,7 @@ export default function Logo() {
       fontSize: 60,
       alignSelf: 'center',
       position: 'absolute',
-      top: '3%',
+      top: '6%',
     },
   })
 

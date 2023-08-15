@@ -5,10 +5,13 @@ import {
   TouchableOpacity,
   Text,
   StyleSheet,
-  Alert, ScrollView, RefreshControl
+  Alert, ScrollView, RefreshControl, Keyboard, TouchableWithoutFeedback
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
+import AntDesign from "react-native-vector-icons/AntDesign";
+import { BackButton } from "../BackButton";
+import { loadListings } from "../../Dataloaders";
 function PostAskScreen({navigation, route}) {
   const {
     fixr_ticket_id,
@@ -26,9 +29,12 @@ function PostAskScreen({navigation, route}) {
   const [price, setPrice] = useState('£');
   const [userId, setUserId] = useState(null);
 
-  const [countdownTime, setCountdownTime] = useState(
-    reserve_timeout - Math.floor(Date.now() / 1000),
-  );
+  // Calculate initial time difference
+  const calculateTimeLeft = () => reserve_timeout - Math.floor(Date.now() / 1000);
+
+  // Initialize countdownTime based on the calculation
+  const [countdownTime, setCountdownTime] = useState(calculateTimeLeft());
+
   const [countdownActive, setCountdownActive] = useState(false);
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
@@ -49,15 +55,44 @@ function PostAskScreen({navigation, route}) {
   const [loading, setLoading] = useState(false);
   const [invalidPrice, setInvalidPrice] = useState(false);
 
-  console.log(fixr_ticket_id, fixr_event_id);
+  useEffect(() => {
+    let intervalId;
+
+    if (countdownActive) {
+      intervalId = setInterval(() => {
+        const timeLeft = calculateTimeLeft();
+        setCountdownTime(timeLeft);
+
+        if (timeLeft <= 0) {
+          clearInterval(intervalId);
+          navigation.goBack();
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [countdownActive]);
 
   const fetchPricing = async () => {
-    const response = await fetch(`${apiUrl}/fees`, {
-      method: 'GET',
-    });
+    let response;
+    if (reserve_timeout){
+      console.log('editing');
+      response = await fetch(`${apiUrl}/fees?ask_id=${ask_id}`, {
+        method: 'GET',
+      });
+    } else {
+      console.log('listing')
+      response = await fetch(`${apiUrl}/fees`, {
+        method: 'GET',
+      });
+    }
+    const data = await response.json();
 
     if (response.ok){
-      const data = await response.json();
 
       setPricingID(data.pricing_id);
       setStripeFixedFee(data.stripe_fixed_fee);
@@ -66,11 +101,12 @@ function PostAskScreen({navigation, route}) {
       setPlatformVariableFee(data.platform_variable_fee);
       setAreFeesLoaded(true);
 
-      if (data.platform_fixed_fee + data.platform_variable_fee > 0){
+      if (data.platform_fixed_fee + data.platform_variable_fee > 0) {
         setHavePlatformFee(true);
       }
 
     } else {
+      console.log(data);
       Alert.alert('Issue loading pricing, please try again');
       navigation.goBack();
     }
@@ -104,6 +140,12 @@ function PostAskScreen({navigation, route}) {
       decimalPrice = price;
     }
 
+    // Only allow numbers and a single decimal point
+    const isValidCharacter = char => (char >= '0' && char <= '9') || char === '.';
+    if (!Array.from(decimalPrice).every(isValidCharacter)) {
+      return;  // If any character is invalid, simply return without updating state
+    }
+
     try {
       if (parseFloat(decimalPrice) < 0.2) {
         setInvalidPrice(true);
@@ -126,6 +168,7 @@ function PostAskScreen({navigation, route}) {
 
     }
   };
+
 
   useEffect(() => {
     const getUserId = async () => {
@@ -215,6 +258,7 @@ function PostAskScreen({navigation, route}) {
 
     if (response.ok) {
       Alert.alert('Listing successfully posted', 'You can easily reclaim your ticket from the listings page if you no longer wish to sell it.');
+      loadListings();
       navigation.goBack();
       navigation.navigate('MyListings');
     } else {
@@ -241,6 +285,8 @@ function PostAskScreen({navigation, route}) {
       }),
     });
 
+    loadListings();
+
     if (response.status !== 200) {
       const data = await response.json();
       console.error(data);
@@ -257,109 +303,115 @@ function PostAskScreen({navigation, route}) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}
-    refreshControl={
-      // include the RefreshControl component in ScrollView
-      <RefreshControl refreshing={loading}/>
-    }>
-      <Text style={styles.title}>{event_name}</Text>
-      <Text style={styles.subtitle}>{ticket_name}</Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <ScrollView contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={loading}/>
+      }>
 
-      {ticket_verified ? (
-        <><Text style={styles.currentPriceText}>
-          Current price: £{current_price}
-        </Text><Text style={styles.currentPriceText}>
-          Time to edit: {countdownMin}:{countdownSec < 10 ? "0" : ""}
-          {countdownSec}
-        </Text></>
-      ) : (
+        <BackButton navigation={navigation} goBack={!ticketVerified} params={'MyListings'} styles={{left: 5}} onPress={() => navigation.goBack()}/>
+        <Text style={styles.title}>{event_name}</Text>
+        <Text style={styles.subtitle}>{ticket_name}</Text>
+
+        {ticket_verified ? (
+          <><Text style={styles.currentPriceText}>
+            Current price: £{current_price}
+          </Text><Text style={styles.currentPriceText}>
+            Time to edit: {countdownMin}:{countdownSec < 10 ? "0" : ""}
+            {countdownSec}
+          </Text></>
+        ) : (
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Transfer URL"
+              placeholderTextColor="#888"
+              value={transferUrl}
+              onChangeText={setTransferUrl}
+              editable={!ticketVerified}
+            />
+
+            <TouchableOpacity
+              style={[
+                styles.button,
+                styles.verifyButton,
+                {
+                  backgroundColor: urlRegex.test(transferUrl)
+                    ? '#3f51b5'
+                    : 'lightgrey',
+                },
+              ]}
+              onPress={verifyTransferUrl}
+              disabled={!urlRegex.test(transferUrl) || ticketVerified}>
+              <Text style={[styles.buttonText, {color: 'white'}]}>
+                {ticketVerified ? 'Verified!' : 'Verify'}
+              </Text>
+            </TouchableOpacity>
+
+          </View>
+        )}
+
         <View style={styles.inputContainer}>
           <TextInput
-            style={styles.input}
-            placeholder="Transfer URL"
+            style={[styles.input, {
+            borderColor: invalidPrice ? 'red': '#ddd'
+          }]}
+            placeholder="Price (£)"
             placeholderTextColor="#888"
-            value={transferUrl}
-            onChangeText={setTransferUrl}
-            editable={!ticketVerified}
+            value={price}
+            onChangeText={handlePriceChange}
+            keyboardType="numeric"
           />
+        </View>
 
+        <View style={styles.fees}>
+
+          <View style={{flexDirection: 'row'}}>
+            <Text style={styles.feeText}>Payment Processing Fee: £{stripeFee}</Text>
+            <TouchableOpacity
+              style={styles.infoButton}
+              onPress={() =>
+                Alert.alert(
+                  'Payment Processing Fee',
+                  havePlatformFee ? 'This is the fee charged by our payment provider Stripe.':
+                    'This is the fee charged by our payment provider Stripe. We do not take a service fee.',
+                )
+              }>
+              <Text style={styles.infoButtonText}>?</Text>
+            </TouchableOpacity>
+          </View>
+          {havePlatformFee > 0 ?
+            <Text style={styles.feeText}>Ticketstar Fee: £{platformFee}</Text>: <></>}
+          <Text style={styles.feeText}>You Receive: £{sellerReceives}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.button,
+            styles.submitButton,
+            {
+              backgroundColor:
+                ticketVerified && isNumber(price) ? '#4CAF50' : 'lightgrey',
+            },
+          ]}
+          onPress={handleSubmit}
+          disabled={!ticketVerified || !isNumber(price) || !areFeesLoaded}>
+          <Text style={[styles.buttonText, styles.submitButtonText]}>Submit</Text>
+        </TouchableOpacity>
+
+        {ticket_verified ? (
           <TouchableOpacity
-            style={[
-              styles.button,
-              styles.verifyButton,
-              {
-                backgroundColor: urlRegex.test(transferUrl)
-                  ? '#3f51b5'
-                  : 'lightgrey',
-              },
-            ]}
-            onPress={verifyTransferUrl}
-            disabled={!urlRegex.test(transferUrl) || ticketVerified}>
-            <Text style={[styles.buttonText, {color: 'white'}]}>
-              {ticketVerified ? 'Verified!' : 'Verify'}
+            style={[styles.button, styles.deleteButton]}
+            onPress={handleDelete}>
+            <Text style={[styles.buttonText, styles.deleteButtonText]}>
+              Delete
             </Text>
           </TouchableOpacity>
-
-        </View>
-      )}
-
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={[styles.input, {
-          borderColor: invalidPrice ? 'red': '#ddd'
-        }]}
-          placeholder="Price (£)"
-          placeholderTextColor="#888"
-          value={price}
-          onChangeText={handlePriceChange}
-          keyboardType="numeric"
-        />
-      </View>
-
-      <View style={{flexDirection: 'row'}}>
-        <Text style={styles.feeText}>Payment Processing fee: £{stripeFee}</Text>
-        <TouchableOpacity
-          style={styles.infoButton}
-          onPress={() =>
-            Alert.alert(
-              'Payment Processing Fee',
-              havePlatformFee ? 'This is the fee charged by our payment provider Stripe.':
-                'This is the fee charged by our payment provider Stripe. We do not currently take a service fee.',
-            )
-          }>
-          <Text style={styles.infoButtonText}>?</Text>
-        </TouchableOpacity>
-      </View>
-      {havePlatformFee > 0 ?
-        <Text style={styles.feeText}>Ticketstar fee: £{platformFee}</Text>: <></>}
-      <Text style={styles.feeText}>You receive: £{sellerReceives}</Text>
-
-      <TouchableOpacity
-        style={[
-          styles.button,
-          styles.submitButton,
-          {
-            backgroundColor:
-              ticketVerified && isNumber(price) ? '#4CAF50' : 'lightgrey',
-          },
-        ]}
-        onPress={handleSubmit}
-        disabled={!ticketVerified || !isNumber(price) || !areFeesLoaded}>
-        <Text style={[styles.buttonText, styles.submitButtonText]}>Submit</Text>
-      </TouchableOpacity>
-
-      {ticket_verified ? (
-        <TouchableOpacity
-          style={[styles.button, styles.deleteButton]}
-          onPress={handleDelete}>
-          <Text style={[styles.buttonText, styles.deleteButtonText]}>
-            Delete
-          </Text>
-        </TouchableOpacity>
-      ) : (
-        <></>
-      )}
-    </ScrollView>
+        ) : (
+          <></>
+        )}
+      </ScrollView>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -451,7 +503,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
     marginTop: 5,
+    alignSelf: 'center'
   },
+  fees: {
+    padding: 15,
+    margin: 7,
+    backgroundColor: '#f7f7f7',  // Lighter color than the main background color
+    borderWidth: 1,
+    borderColor: '#e0e0e0',  // Light gray border
+    borderRadius: 5,  // Rounded corners
+    shadowColor: "#000",  // shadow for iOS
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,// elevation for Android
+  }
 });
 
 export default PostAskScreen;

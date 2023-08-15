@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {API_URL_PROD} from '@env';
-import {View, Alert, SafeAreaView, Text, ActivityIndicator} from 'react-native';
+import { View, Alert, SafeAreaView, Text, ActivityIndicator, Keyboard, TouchableWithoutFeedback } from "react-native";
 import Logo from './Logo';
 import InputField from './InputField';
 import CustomButton from './CustomButton';
@@ -52,43 +52,45 @@ function ConfirmVerificationCodeScreen({navigation, route}) {
   };
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-      <Logo />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <SafeAreaView
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+        <Logo />
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <>
-          <View
-            style={{
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '75%',
-              bottom: '2%',
-            }}>
-            <Text>A verification email has been sent to: {email}</Text>
-            <InputField
-              placeHolder={'Verification Code'}
-              validationRegex={'/\\S/'}
-              text={verificationCode}
-              setText={setVerificationCode}
-              onValidChange={setIsVerificartionCodeInputValid}
+        {loading ? (
+          <ActivityIndicator size="large" color="#0000ff" />
+        ) : (
+          <>
+            <View
+              style={{
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '75%',
+                bottom: '2%',
+              }}>
+              <Text>A verification email has been sent to: {email}</Text>
+              <InputField
+                placeHolder={'Verification Code'}
+                validationRegex={'/\\S/'}
+                text={verificationCode}
+                setText={setVerificationCode}
+                onValidChange={setIsVerificartionCodeInputValid}
+              />
+            </View>
+            <FinePrintButton title={'Resend code'} handlePress={handleResend} />
+            <CustomButton
+              title={'Submit'}
+              handlePress={handleConfirmVerificationCode}
             />
-          </View>
-          <FinePrintButton title={'Resend code'} handlePress={handleResend} />
-          <CustomButton
-            title={'Submit'}
-            handlePress={handleConfirmVerificationCode}
-          />
-        </>
-      )}
-    </SafeAreaView>
+          </>
+        )}
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 

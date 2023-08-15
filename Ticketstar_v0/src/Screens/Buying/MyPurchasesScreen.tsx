@@ -8,28 +8,28 @@ import {
   TouchableOpacity,
   RefreshControl,
   Linking,
-  ActivityIndicator,
-} from 'react-native';
+  ActivityIndicator, Alert
+} from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useIsFocused} from '@react-navigation/native';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {formatTimes} from '../../utilities';
 import {loadPurchases } from "../../Dataloaders";
 
-function MyPurchasesScreen() {
+function MyPurchasesScreen({route}) {
   const [purchases, setPurchases] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('unclaimed'); // initialize filter state as 'all'
   const [loading, setLoading] = useState(false);
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
+  const {requestRefresh} = route.params || {};
   // const apiUrl = API_URL_PROD;
   const handleFilterChange = newFilter => {
     setFilter(newFilter);
   };
 
-  const handleRefresh = async (filter) => {
-    setLoading(true);
+  const handleRefresh = async (filter) => {setLoading(true);
     await reload(filter); // include current filter when refreshing
     setLoading(false);
   };
@@ -37,41 +37,71 @@ function MyPurchasesScreen() {
   const filterPurchases = (data, filterType) => {
     const currentTime = Date.now();
 
-    let filteredData = data.filter(event => {
-      console.log(event.open_time);
-      if (filterType === 'upcoming') {
-        return event.open_time * 1000 > currentTime;
-      } else if (filterType === 'past') {
-        return event.open_time * 1000 <= currentTime;
-      } else if (filterType === 'unclaimed') {
-        return event.tickets.some(ticket => ticket.purchases.some(purchase => purchase.claimed === false));
-      } else {
-        // This handles unexpected filter types by not filtering anything out
-        return true;
-      }
-    });
+    let filteredData;
+
+    if (filterType === 'upcoming' || filterType === 'past') {
+
+      filteredData = data.filter(event => {
+        if (filterType === 'upcoming') {
+          return event.open_time * 1000 > currentTime;
+        } else if (filterType === 'past') {
+          return event.open_time * 1000 <= currentTime;
+        }
+      });
+    } else {
+
+      filteredData = data.filter((event) => {
+
+        event.tickets = event.tickets.filter((ticket) => {
+
+          ticket.purchases = ticket.purchases.filter((purchase) => {
+            return !purchase.claimed;
+          });
+
+          return ticket.purchases.length > 0;
+
+        });
+
+        return event.tickets.length > 0;
+
+      });
+
+    }
+
+    // If the filterType is 'unclaimed', further refine each event to only contain unclaimed tickets
+
 
     return filteredData;
   };
 
 
+
+
   const reload = async () => {
 
+    setLoading(true);
     await loadPurchases();
+    await fetchAndFilterPurchases();
+    setLoading(false);
+
+  };
+
+  const fetchAndFilterPurchases = async () => {
     const storedData = JSON.parse(await AsyncStorage.getItem('UserPurchases'));
-    console.log('storedData: ' + JSON.stringify(storedData, null, 4));
     const filteredData = filterPurchases(storedData, filter);
     setPurchases(filteredData);
-
   };
 
   useEffect(() => {
 
-    const fetchAndFilterPurchases = async () => {
-      const storedData = JSON.parse(await AsyncStorage.getItem('UserPurchases'));
-      const filteredData = filterPurchases(storedData, filter);
-      setPurchases(filteredData);
-    };
+    fetchAndFilterPurchases();
+
+    if (requestRefresh){
+      reload();
+    }
+  }, [])
+
+  useEffect(() => {
 
     fetchAndFilterPurchases();
   }, [filter]);
@@ -90,7 +120,14 @@ function MyPurchasesScreen() {
   };
 
   const handleTransfer = async askId => {
-    const response = await fetch(`${apiUrl}/transfers/${askId}`);
+    setRefreshing(true);
+    const userId = await AsyncStorage.getItem('user_id');
+    const response = await fetch(`${apiUrl}/transfers/${askId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        'user_id': userId,
+      })
+    });
     const body = await response.json();
 
     if (response.ok) {
@@ -99,7 +136,12 @@ function MyPurchasesScreen() {
       Linking.openURL(transferUrl);
     } else {
       console.error('Failed to fetch transfer URL: ', body);
+      if (body.reason === 'TicketNoLongerAvailable'){
+        Alert.alert('Ticket no longer available to claim');
+        reload();
+      }
     }
+    setRefreshing(false);
   };
 
   const getTitle = (filter) => {
@@ -109,7 +151,7 @@ function MyPurchasesScreen() {
       case 'upcoming':
         return 'You have no upcoming events';
       case 'past':
-        return 'You have no passed events';
+        return 'You have no past events';
     }
   };
 
@@ -132,7 +174,7 @@ function MyPurchasesScreen() {
       style={styles.container}
       refreshControl={
         // include the RefreshControl component in ScrollView
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={'black'}/>
       }>
       <View style={styles.titleContainer}>
         <Text style={styles.title}>Your Purchases</Text>

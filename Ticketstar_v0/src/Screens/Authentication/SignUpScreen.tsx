@@ -1,19 +1,16 @@
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {API_URL_PROD} from '@env';
 import {
   View,
-  TextInput,
   Alert,
-  Text,
-  TouchableOpacity,
   SafeAreaView,
-  ActivityIndicator,
-} from 'react-native';
-import {authenticationStyles} from '../Styling/authentication';
+  ActivityIndicator, Keyboard, TouchableWithoutFeedback, Text
+} from "react-native";
 import Logo from './Logo';
 import FinePrintButton from './FinePrintButton';
 import CustomButton from './CustomButton';
 import InputField from './InputField';
+import { BackButton } from "../BackButton";
 
 const nameValidation = /^.{2,}$/;
 
@@ -88,81 +85,85 @@ const SignUpScreen = ({navigation}) => {
   };
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-      <Logo />
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <SafeAreaView
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}>
+        <BackButton navigation={navigation} params={'MainPage'}/>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <>
-          <View
-            style={{
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '75%',
-              bottom: '2%',
-            }}>
-            <InputField
-              placeHolder={'First Name'}
-              text={firstName}
-              setText={setFirstName}
-              validationRegex={nameValidation}
-              onValidChange={setIsFirstNameValid}
-            />
-            <InputField
-              placeHolder={'Last Name'}
-              text={lastName}
-              setText={setLastName}
-              validationRegex={nameValidation}
-              onValidChange={setIsLastNameValid}
-            />
-            <InputField
-              placeHolder={'Email'}
-              text={email}
-              setText={handleSetEmail}
-              validationRegex={emailValidation}
-              errorMessage={'Must be an exeter.ac.uk email'}
-              onValidChange={setIsEmailValid}
-            />
-            <InputField
-              placeHolder={'Password'}
-              text={password}
-              setText={setPassword}
-              validationRegex={passwordValidation}
-              errorMessage={
-                'Password requirements:\n8 characeters\nAt least one uppercase character\nAt least one number\nAt least one special character'
+        <Logo />
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#0000ff" />
+        ) : (
+          <>
+            <View
+              style={{
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '75%',
+                bottom: '2%',
+              }}>
+              <InputField
+                placeHolder={'First Name'}
+                text={firstName}
+                setText={setFirstName}
+                validationRegex={nameValidation}
+                onValidChange={setIsFirstNameValid}
+              />
+              <InputField
+                placeHolder={'Last Name'}
+                text={lastName}
+                setText={setLastName}
+                validationRegex={nameValidation}
+                onValidChange={setIsLastNameValid}
+              />
+              <InputField
+                placeHolder={'Email'}
+                text={email}
+                setText={handleSetEmail}
+                validationRegex={emailValidation}
+                errorMessage={'Must be an exeter.ac.uk email'}
+                onValidChange={setIsEmailValid}
+              />
+              <InputField
+                placeHolder={'Password'}
+                text={password}
+                setText={setPassword}
+                validationRegex={passwordValidation}
+                errorMessage={
+                  'Password requirements:\n8 characeters\nAt least one uppercase character\nAt least one number\nAt least one special character'
+                }
+                onValidChange={setIsPasswordValid}
+                secureEntry={true}
+              />
+            </View>
+
+            <CustomButton
+              title={'Sign Up'}
+              disabled={
+                !(
+                  isFirstNameValid &&
+                  isLastNameValid &&
+                  isEmailValid &&
+                  isPasswordValid
+                )
               }
-              onValidChange={setIsPasswordValid}
-              secureEntry={true}
+              handlePress={onSubmit}
             />
-          </View>
 
-          <CustomButton
-            title={'Sign Up'}
-            disabled={
-              !(
-                isFirstNameValid &&
-                isLastNameValid &&
-                isEmailValid &&
-                isPasswordValid
-              )
-            }
-            handlePress={onSubmit}
-          />
-
-          <FinePrintButton
-            title={'Existing User? Login Now'}
-            handlePress={signInClick}
-          />
-        </>
-      )}
-    </SafeAreaView>
+            <FinePrintButton
+              title={'Existing User? Login Now'}
+              handlePress={signInClick}
+            />
+          </>
+        )}
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 };
 
