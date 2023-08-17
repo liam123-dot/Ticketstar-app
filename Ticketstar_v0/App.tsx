@@ -6,6 +6,7 @@ import {StripeProvider} from '@stripe/stripe-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {loadPurchases, loadListings} from './src/Dataloaders';
 import {API_URL_PROD, API_URL_LOCAL, PUBLISHABLE_STRIPE_KEY} from '@env';
+import { RecordAppOpen } from "./src/Metrics";
 
 enableScreens(); // ensure screens are enabled for better performance
 
@@ -43,6 +44,7 @@ export default function App() {
       }
     };
 
+    RecordAppOpen();
     loadData();
     loadListings();
     loadPurchases();

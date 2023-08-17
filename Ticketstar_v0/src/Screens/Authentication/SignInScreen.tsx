@@ -107,7 +107,7 @@ const SignInScreen = () => {
 
     setEmail(email.toLowerCase());
 
-  }
+  };
 
   const forgotPasswordClick = () => {
     navigation.navigate('ForgotPassword');

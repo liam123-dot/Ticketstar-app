@@ -94,10 +94,10 @@ function MyPurchasesScreen({route}) {
 
   useEffect(() => {
 
-    fetchAndFilterPurchases();
-
     if (requestRefresh){
       reload();
+    } else {
+      fetchAndFilterPurchases();
     }
   }, [])
 

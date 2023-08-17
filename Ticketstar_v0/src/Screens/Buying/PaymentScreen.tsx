@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   confirmPlatformPayPayment,
@@ -10,7 +10,7 @@ import {
   initPaymentSheet,
 } from "@stripe/stripe-react-native";
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import { loadListings, loadPurchases } from "../../Dataloaders";
+import { loadPurchases } from "../../Dataloaders";
 
 export default function PaymentScreen({ navigation, route }) {
 
@@ -61,12 +61,12 @@ export default function PaymentScreen({ navigation, route }) {
   }, []);
   useEffect(() => {
     (async function() {
-      console.log(await isPlatformPaySupported())
       setIsApplePaySupported(await isPlatformPaySupported());
     })();
-  }, [isPlatformPaySupported]);
+  }, []);
 
   const fetchPaymentSheetParams = async () => {
+    setLoading(true);
     const email = await AsyncStorage.getItem('email');
     const first_name = await AsyncStorage.getItem('first_name');
     const surname = await AsyncStorage.getItem('surname');
@@ -102,6 +102,7 @@ export default function PaymentScreen({ navigation, route }) {
       console.error(error);
       Alert.alert('Network Error', 'Failed to fetch payment sheet params.');
     }
+    setLoading(false);
   };
 
   const openPaymentSheet = async () => {
@@ -200,21 +201,24 @@ export default function PaymentScreen({ navigation, route }) {
       {/* Payment Buttons */}
       <View style={styles.paymentContainer}>
 
-        <PayByCard />
-
-        {/*{isApplePaySupported && (*/}
-          <PlatformPayButton
-            onPress={pay}
-            type={PlatformPay.ButtonType.Pay}
-            appearance={PlatformPay.ButtonStyle.Black}
-            borderRadius={4}
-            style={{
-              width: '100%',
-              height: 50,
-            }}
-            disabled={!loaded}
-          />
-        {/*)}*/}
+        {loading ?
+          <ActivityIndicator size="large" color="#0000ff" />
+          :
+          <>
+          <PayByCard/>
+            {isApplePaySupported && (<PlatformPayButton
+              onPress={pay}
+              type={PlatformPay.ButtonType.Pay}
+              appearance={PlatformPay.ButtonStyle.Black}
+              borderRadius={4}
+              style={{
+                width: '100%',
+                height: 50,
+              }}
+              disabled={!loaded}
+            />)}
+          </>
+        }
       </View>
 
     </SafeAreaView>

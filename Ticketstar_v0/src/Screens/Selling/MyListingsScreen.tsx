@@ -10,7 +10,7 @@ import {
   Linking, ActivityIndicator, Alert
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useIsFocused, useNavigation} from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import {formatTimes} from '../../utilities';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {loadListings} from '../../Dataloaders';
@@ -55,7 +55,7 @@ const filterListings = (data, filterType) => {
 
 
 
-function MyListingsScreen() {
+function MyListingsScreen({route}) {
   const [listings, setListings] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -157,8 +157,10 @@ function MyListingsScreen() {
 
   const reload = async () => {
 
+    setRefreshing(true);
     await loadListings();
     await filterData();
+    setRefreshing(false);
 
   }
 
@@ -180,7 +182,6 @@ function MyListingsScreen() {
   };
 
   useEffect(() => {
-    filterData();
     const checkSellerEnabled = async () => {
 
       const sellerVerified = await AsyncStorage.getItem('SellerVerified') === 'true';
@@ -189,6 +190,25 @@ function MyListingsScreen() {
     };
     checkSellerEnabled();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // The code here will run every time the screen is focused/navigated to
+      let {requestRefresh} = route.params || {};
+
+      if (requestRefresh){
+        console.log('refreshing');
+        reload();
+        requestRefresh = false;
+      } else {
+        filterData();
+      }
+
+      return () => {
+        // Optional: The code here will run when the screen is navigated away from
+      };
+    }, []) // You can add any dependencies here if needed
+  );
 
   useEffect(() => {
 
@@ -370,9 +390,9 @@ function MyListingsScreen() {
                           />
                         ) : ticket.listings[askId].ownership ? (
                           <>
-                            <RelistButton
-                              ask_id={ticket.listings[askId].ask_id}
-                            />
+                            {/*<RelistButton*/}
+                            {/*  ask_id={ticket.listings[askId].ask_id}*/}
+                            {/*/>*/}
                           </>
                         ) : (
                           <></>

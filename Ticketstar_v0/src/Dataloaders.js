@@ -29,7 +29,7 @@ export const loadListings = async () => {
           isExpanded: false,
         })),
       }));
-      console.log('expanded data: ' + expandedData);
+
       await AsyncStorage.setItem('UserListings', JSON.stringify(expandedData));
     }
   }

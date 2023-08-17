@@ -80,12 +80,10 @@ function PostAskScreen({navigation, route}) {
   const fetchPricing = async () => {
     let response;
     if (reserve_timeout){
-      console.log('editing');
       response = await fetch(`${apiUrl}/fees?ask_id=${ask_id}`, {
         method: 'GET',
       });
     } else {
-      console.log('listing')
       response = await fetch(`${apiUrl}/fees`, {
         method: 'GET',
       });
@@ -124,6 +122,12 @@ function PostAskScreen({navigation, route}) {
 
       let seller_receives = numericPrice - (platform_fee + stripe_fee);
 
+      if (seller_receives < 1){
+        setInvalidPrice(true);
+      } else {
+        setInvalidPrice(false);
+      }
+
       setPlatformFee(platform_fee.toFixed(2));
       setStripeFee(stripe_fee.toFixed(2));
       setSellerReceives(seller_receives.toFixed(2));
@@ -147,11 +151,6 @@ function PostAskScreen({navigation, route}) {
     }
 
     try {
-      if (parseFloat(decimalPrice) < 0.2) {
-        setInvalidPrice(true);
-      } else {
-        setInvalidPrice(false);
-      }
 
       // Check if price has more than 1 decimal place
       let decimalIndex = decimalPrice.indexOf('.');
@@ -172,6 +171,12 @@ function PostAskScreen({navigation, route}) {
 
   useEffect(() => {
     const getUserId = async () => {
+
+      if ((fixr_event_id === undefined || fixr_ticket_id === undefined) && !ticket_verified){
+        Alert.alert('Error', 'Please try again');
+        navigation.goBack();
+      }
+
       const userId = await AsyncStorage.getItem('user_id');
 
       setUserId(userId);
@@ -211,6 +216,7 @@ function PostAskScreen({navigation, route}) {
   const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
 
   const verifyTransferUrl = async () => {
+    console.log(fixr_ticket_id, fixr_event_id)
     setLoading(true);
     const response = await fetch(apiUrl + '/transfers/verifyurl', {
       method: 'POST',
@@ -226,6 +232,7 @@ function PostAskScreen({navigation, route}) {
     } else {
       Alert.alert('Invalid transfer url for this event');
       const data = await response.json();
+      console.error(data)
     }
     setLoading(false);
   };
@@ -258,9 +265,10 @@ function PostAskScreen({navigation, route}) {
 
     if (response.ok) {
       Alert.alert('Listing successfully posted', 'You can easily reclaim your ticket from the listings page if you no longer wish to sell it.');
-      loadListings();
       navigation.goBack();
-      navigation.navigate('MyListings');
+      navigation.navigate('MyListings', {
+        requestRefresh: true,
+      });
     } else {
       try {
         const data = await response.json();
@@ -292,7 +300,9 @@ function PostAskScreen({navigation, route}) {
       console.error(data);
     } else {
       navigation.goBack();
-      navigation.navigate('MyListings');
+      navigation.navigate('MyListings', {
+        requestRefresh: true,
+      });
     }
     setLoading(false);
   };
@@ -361,6 +371,7 @@ function PostAskScreen({navigation, route}) {
             value={price}
             onChangeText={handlePriceChange}
             keyboardType="numeric"
+            editable={areFeesLoaded}
           />
         </View>
 
@@ -395,7 +406,7 @@ function PostAskScreen({navigation, route}) {
             },
           ]}
           onPress={handleSubmit}
-          disabled={!ticketVerified || !isNumber(price) || !areFeesLoaded}>
+          disabled={!ticketVerified || !isNumber(price) || !areFeesLoaded || !invalidPrice}>
           <Text style={[styles.buttonText, styles.submitButtonText]}>Submit</Text>
         </TouchableOpacity>
 

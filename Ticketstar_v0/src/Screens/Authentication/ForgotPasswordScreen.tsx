@@ -1,9 +1,10 @@
 import React, {useState} from 'react';
-import {SafeAreaView, Text, View} from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, SafeAreaView, Text, TouchableWithoutFeedback, View } from "react-native";
 import Logo from './Logo';
 import InputField from './InputField';
 import CustomButton from './CustomButton';
 import {API_URL_PROD} from '@env';
+import { BackButton } from "../BackButton";
 
 export default function ForgotPasswordScreen({navigation}) {
   const apiUrl = API_URL_PROD;
@@ -21,7 +22,10 @@ export default function ForgotPasswordScreen({navigation}) {
 
   const [userId, setUserId] = useState(null);
 
+  const [loading, setLoading] = useState(false);
+
   const handleSendCode = async () => {
+    setLoading(true);
     setUserDoesNotExist(false);
     setCodeSent(false);
     const response = await fetch(`${apiUrl}/authentication/forgotpassword`, {
@@ -33,21 +37,35 @@ export default function ForgotPasswordScreen({navigation}) {
 
     const data = await response.json();
 
-    console.log(data)
+    console.log(response);
+    console.log(data);
+
     if (response.ok) {
+      console.log(data);
       setCodeSent(true);
       setUserId(data.user_id);
     } else if (response.status === 400) {
       if (data.reason === 'UserNotFoundException') {
         setUserDoesNotExist(true);
       } else {
+
+        if (data.reason === 'LimitExceededException') {
+          Alert.alert('Retry Limit Exceeded', 'Please try again later');
+        }
+
         setUserDoesNotExist(false);
       }
+      console.log(data);
     }
+    setLoading(false);
   };
 
+  const handleSetEmail = email => {
+    setUserInput(email.toLowerCase());
+  }
+
   const handleCheckCode = async () => {
-    console.log(userId);
+    setLoading(true);
     const response = await fetch(
       `${apiUrl}/authentication/confirmforgotpassword`,
       {
@@ -62,27 +80,38 @@ export default function ForgotPasswordScreen({navigation}) {
 
     if (response.ok){
       navigation.goBack();
+    } else {
+      const data = await response.json();
+      console.log(data);
     }
+    setLoading(false);
   };
 
   return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
     <SafeAreaView style={{flex: 1}}>
-      <View>
-        <Logo />
-      </View>
+      <BackButton navigation={navigation} params={'SignIn'}/>
+      <Logo />
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : (
+        <>
 
       <View
         style={{
           top: '30%',
           width: '75%',
           alignSelf: 'center',
+          flexDirection: 'column',
+          alignItems: 'center',
         }}>
         <InputField
           placeHolder={'Email'}
           validationRegex={combinedRegex}
           errorMessage={'Enter a valid email'}
           text={userInput}
-          setText={setUserInput}
+          setText={handleSetEmail}
           onValidChange={setInputValid}
         />
         {userDoesNotExists ? (
@@ -134,6 +163,8 @@ export default function ForgotPasswordScreen({navigation}) {
           handlePress={handleCheckCode}
         />
       )}
+        </>)}
     </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }

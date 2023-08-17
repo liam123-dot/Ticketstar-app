@@ -20,6 +20,8 @@ function ConfirmVerificationCodeScreen({navigation, route}) {
 
   const handleConfirmVerificationCode = async () => {
 
+    setLoading(true);
+
     const response = await fetch(
       `${apiUrl}/authentication/verifyconfirmationcode`,
       {
@@ -48,6 +50,8 @@ function ConfirmVerificationCodeScreen({navigation, route}) {
       }
 
     }
+
+    setLoading(false);
 
   };
 
