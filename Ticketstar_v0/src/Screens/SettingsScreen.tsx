@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useNavigation} from '@react-navigation/native';
 import {API_URL_LOCAL, API_URL_PROD} from '@env';
+import { handleTransfer } from "../TicketTransfer";
 
 function SettingsScreen() {
   const navigation = useNavigation();
@@ -129,7 +130,7 @@ function SettingsScreen() {
       style={styles.container}
       refreshControl={
         // include the RefreshControl component in ScrollView
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={'black'}/>
       }>
       <View style={styles.settingsItem}>
         <Text style={styles.detailHeader}>First Name</Text>
@@ -175,10 +176,36 @@ function SettingsScreen() {
       )}
 
       <View style={styles.settingsItem}>
+        <TouchableOpacity
+          style={[styles.button, {backgroundColor: '#43a047'}]}
+          onPress={() =>
+            Linking.openURL('https://ticketstar.uk/contact')
+          }>
+          <Text
+           style={styles.signOutText}
+          >
+            Contact
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, {backgroundColor: '#43a047'}]}
+          onPress={() =>
+            Linking.openURL('https://ticketstar.uk')
+          }>
+          <Text
+            style={styles.signOutText}
+          >
+            FAQ's
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.settingsItem}>
         <TouchableOpacity style={styles.button} onPress={signOut}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
+
     </ScrollView>
   );
 }

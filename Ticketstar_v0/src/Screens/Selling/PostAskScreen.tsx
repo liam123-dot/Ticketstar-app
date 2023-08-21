@@ -9,9 +9,10 @@ import {
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import AntDesign from "react-native-vector-icons/AntDesign";
 import { BackButton } from "../BackButton";
 import { loadListings } from "../../Dataloaders";
+import {fetchPricing} from "../../FetchPricing";
+
 function PostAskScreen({navigation, route}) {
   const {
     fixr_ticket_id,
@@ -76,39 +77,6 @@ function PostAskScreen({navigation, route}) {
       }
     };
   }, [countdownActive]);
-
-  const fetchPricing = async () => {
-    let response;
-    if (reserve_timeout){
-      response = await fetch(`${apiUrl}/fees?ask_id=${ask_id}`, {
-        method: 'GET',
-      });
-    } else {
-      response = await fetch(`${apiUrl}/fees`, {
-        method: 'GET',
-      });
-    }
-    const data = await response.json();
-
-    if (response.ok){
-
-      setPricingID(data.pricing_id);
-      setStripeFixedFee(data.stripe_fixed_fee);
-      setStripeVariableFee(data.stripe_variable_fee);
-      setPlatformFixedFee(data.platform_fixed_fee);
-      setPlatformVariableFee(data.platform_variable_fee);
-      setAreFeesLoaded(true);
-
-      if (data.platform_fixed_fee + data.platform_variable_fee > 0) {
-        setHavePlatformFee(true);
-      }
-
-    } else {
-      console.log(data);
-      Alert.alert('Issue loading pricing, please try again');
-      navigation.goBack();
-    }
-  };
 
   const updateFees = (price) => {
     if (price === '£' || price.length === 0){
@@ -180,7 +148,36 @@ function PostAskScreen({navigation, route}) {
       const userId = await AsyncStorage.getItem('user_id');
 
       setUserId(userId);
-      fetchPricing();
+
+      try {
+
+        let result;
+
+        if (ticket_verified) {
+
+          result = await fetchPricing(ask_id);
+
+        } else {
+
+          result = await fetchPricing();
+
+        }
+
+        if (result) {
+          setPricingID(result.pricingID);
+          setStripeFixedFee(result.stripeFixedFee);
+          setStripeVariableFee(result.stripeVariableFee);
+          setPlatformFixedFee(result.platformFixedFee);
+          setPlatformVariableFee(result.platformVariableFee);
+          setAreFeesLoaded(result.areFeesLoaded);
+          setHavePlatformFee(result.havePlatformFee);
+        } else {
+          throw Error();
+        }
+
+      } catch (error){
+        Alert.alert('There has been an error, please try again later');
+      }
     };
 
     getUserId();
@@ -316,10 +313,10 @@ function PostAskScreen({navigation, route}) {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <ScrollView contentContainerStyle={styles.container}
       refreshControl={
-        <RefreshControl refreshing={loading}/>
+        <RefreshControl refreshing={loading} tintColor={'black'}/>
       }>
 
-        <BackButton navigation={navigation} goBack={!ticketVerified} params={'MyListings'} styles={{left: 5}} onPress={() => navigation.goBack()}/>
+        <BackButton navigation={navigation} goBack={!ticketVerified} params={ticket_verified ? 'MyListings': ''} styles={{left: 5}} onPress={() => navigation.goBack()}/>
         <Text style={styles.title}>{event_name}</Text>
         <Text style={styles.subtitle}>{ticket_name}</Text>
 
@@ -406,7 +403,7 @@ function PostAskScreen({navigation, route}) {
             },
           ]}
           onPress={handleSubmit}
-          disabled={!ticketVerified || !isNumber(price) || !areFeesLoaded || !invalidPrice}>
+          disabled={!ticketVerified || !isNumber(price) || !areFeesLoaded || invalidPrice}>
           <Text style={[styles.buttonText, styles.submitButtonText]}>Submit</Text>
         </TouchableOpacity>
 

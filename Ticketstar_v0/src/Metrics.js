@@ -6,8 +6,6 @@ export const RecordAppOpen = async () => {
   const userId = await AsyncStorage.getItem('user_id');
   const apiUrl = API_URL_PROD;
 
-  console.log('recording');
-
   if (userId === null) {
     return;
   }

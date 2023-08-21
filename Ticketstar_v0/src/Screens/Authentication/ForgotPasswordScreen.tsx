@@ -1,10 +1,18 @@
 import React, {useState} from 'react';
-import { ActivityIndicator, Alert, Keyboard, SafeAreaView, Text, TouchableWithoutFeedback, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  SafeAreaView,
+  Text,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
 import Logo from './Logo';
 import InputField from './InputField';
 import CustomButton from './CustomButton';
 import {API_URL_PROD} from '@env';
-import { BackButton } from "../BackButton";
+import {BackButton} from '../BackButton';
 
 export default function ForgotPasswordScreen({navigation}) {
   const apiUrl = API_URL_PROD;
@@ -41,14 +49,12 @@ export default function ForgotPasswordScreen({navigation}) {
     console.log(data);
 
     if (response.ok) {
-      console.log(data);
       setCodeSent(true);
       setUserId(data.user_id);
     } else if (response.status === 400) {
       if (data.reason === 'UserNotFoundException') {
         setUserDoesNotExist(true);
       } else {
-
         if (data.reason === 'LimitExceededException') {
           Alert.alert('Retry Limit Exceeded', 'Please try again later');
         }
@@ -62,7 +68,7 @@ export default function ForgotPasswordScreen({navigation}) {
 
   const handleSetEmail = email => {
     setUserInput(email.toLowerCase());
-  }
+  };
 
   const handleCheckCode = async () => {
     setLoading(true);
@@ -78,7 +84,7 @@ export default function ForgotPasswordScreen({navigation}) {
       },
     );
 
-    if (response.ok){
+    if (response.ok) {
       navigation.goBack();
     } else {
       const data = await response.json();
@@ -89,82 +95,85 @@ export default function ForgotPasswordScreen({navigation}) {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-    <SafeAreaView style={{flex: 1}}>
-      <BackButton navigation={navigation} params={'SignIn'}/>
-      <Logo />
+      <SafeAreaView style={{flex: 1}}>
+        <BackButton navigation={navigation} params={'SignIn'} />
+        <Logo />
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <>
-
-      <View
-        style={{
-          top: '30%',
-          width: '75%',
-          alignSelf: 'center',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}>
-        <InputField
-          placeHolder={'Email'}
-          validationRegex={combinedRegex}
-          errorMessage={'Enter a valid email'}
-          text={userInput}
-          setText={handleSetEmail}
-          onValidChange={setInputValid}
-        />
-        {userDoesNotExists ? (
-          <Text>
-            The email you submitted is not registered with an
-            existing user
-          </Text>
-        ) : codeSent ? (
-          <>
-            <Text>
-              A code has been sent to your provided email
-            </Text>
-            <InputField
-              placeHolder={'Verification Code'}
-              validationRegex={/\S/}
-              errorMessage={'Enter a non-empty code'}
-              text={verificationCode}
-              setText={setVerificationCode}
-              onValidChange={setVerificationCodeInputValid}
-            />
-            <InputField
-              placeHolder={'New Password'}
-              validationRegex={
-                /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/
-              }
-              errorMessage={
-                'Password requirements:\n8 characeters\nAt least one uppercase character\nAt least one number\nAt least one special character'
-              }
-              text={password}
-              setText={setPassword}
-              onValidChange={setPasswordValid}
-              secureEntry={true}
-            />
-          </>
+        {loading ? (
+          <View
+            style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+            <ActivityIndicator size="large" color="#0000ff" />
+          </View>
         ) : (
-          <></>
+          <>
+            <View
+              style={{
+                top: '30%',
+                width: '75%',
+                alignSelf: 'center',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}>
+              <InputField
+                placeHolder={'Email'}
+                validationRegex={combinedRegex}
+                errorMessage={'Enter a valid email'}
+                text={userInput}
+                setText={handleSetEmail}
+                onValidChange={setInputValid}
+              />
+              {userDoesNotExists ? (
+                <Text>
+                  The email you submitted is not registered with an existing
+                  user
+                </Text>
+              ) : codeSent ? (
+                <>
+                  <Text>A code has been sent to your provided email</Text>
+                  <InputField
+                    placeHolder={'Verification Code'}
+                    validationRegex={/\S/}
+                    errorMessage={'Enter a non-empty code'}
+                    text={verificationCode}
+                    setText={setVerificationCode}
+                    onValidChange={setVerificationCodeInputValid}
+                  />
+                  <InputField
+                    placeHolder={'New Password'}
+                    validationRegex={
+                      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/
+                    }
+                    errorMessage={
+                      'Password requirements:\n8 characeters\nAt least one uppercase character\nAt least one number\nAt least one special character'
+                    }
+                    text={password}
+                    setText={setPassword}
+                    onValidChange={setPasswordValid}
+                    secureEntry={true}
+                  />
+                </>
+              ) : (
+                <></>
+              )}
+            </View>
+            {!codeSent ? (
+              <CustomButton
+                title={'Submit Email'}
+                disabled={!inputValid}
+                handlePress={handleSendCode}
+              />
+            ) : (
+              <CustomButton
+                title={'Submit Verification Code'}
+                disabled={
+                  !verificationCodeInputValid || !codeSent || !passwordValid
+                }
+                handlePress={handleCheckCode}
+              />
+            )}
+          </>
         )}
-      </View>
-      {!codeSent ? (
-        <CustomButton
-          title={'Submit Email'}
-          disabled={!inputValid}
-          handlePress={handleSendCode}
-        />
-      ) : (
-        <CustomButton
-          title={'Submit Verification Code'}
-          disabled={!verificationCodeInputValid || !codeSent || !passwordValid}
-          handlePress={handleCheckCode}
-        />
-      )}
-        </>)}
-    </SafeAreaView>
+      </SafeAreaView>
     </TouchableWithoutFeedback>
   );
 }

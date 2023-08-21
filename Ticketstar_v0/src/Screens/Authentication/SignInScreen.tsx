@@ -16,6 +16,7 @@ import FinePrintButton from './FinePrintButton';
 import { loadListings, loadPurchases } from "../../Dataloaders";
 import { BackButton } from "../BackButton";
 import { CheckSellerVerified } from "../../CheckSellerVerified";
+import { RecordAppOpen } from "../../Metrics";
 
 const SignInScreen = () => {
   const navigation = useNavigation();
@@ -69,6 +70,7 @@ const SignInScreen = () => {
         ]);
 
         CheckSellerVerified();
+        RecordAppOpen();
 
         if (email_verified === 'true') {
           loadListings();

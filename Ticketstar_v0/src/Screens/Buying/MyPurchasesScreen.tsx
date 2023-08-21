@@ -7,104 +7,154 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  Linking,
-  ActivityIndicator, Alert
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useIsFocused} from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {formatTimes} from '../../utilities';
 import {loadPurchases } from "../../Dataloaders";
+import {handleTransfer} from "../../TicketTransfer";
+
+const filterPurchases = (data, filterType) => {
+  const currentTime = Date.now();
+
+  let filteredData;
+
+  if (filterType === 'upcoming' || filterType === 'past') {
+
+    filteredData = data.filter(event => {
+      if (filterType === 'upcoming') {
+        return event.open_time * 1000 > currentTime;
+      } else if (filterType === 'past') {
+        return event.open_time * 1000 <= currentTime;
+      }
+    });
+  } else {
+
+    filteredData = data.filter((event) => {
+
+      event.tickets = event.tickets.filter((ticket) => {
+
+        ticket.purchases = ticket.purchases.filter((purchase) => {
+          return !purchase.claimed;
+        });
+
+        return ticket.purchases.length > 0;
+
+      });
+
+      return event.tickets.length > 0;
+
+    });
+
+  }
+
+  // If the filterType is 'unclaimed', further refine each event to only contain unclaimed tickets
+
+
+  return filteredData;
+};
+
+const countPurchases = async (filterType) => {
+  const currentTime = Date.now();
+  let count = 0;
+
+  const data = JSON.parse(await AsyncStorage.getItem('UserPurchases'));
+
+  data.forEach(event => {
+    if (filterType === 'upcoming' || filterType === 'past') {
+      const isValidEvent = filterType === 'upcoming'
+        ? event.open_time * 1000 > currentTime
+        : event.open_time * 1000 <= currentTime;
+
+      if (isValidEvent) {
+        event.tickets.forEach(ticket => {
+          count += ticket.purchases.length;
+        });
+      }
+    } else if (filterType === 'unclaimed') {
+      event.tickets.forEach(ticket => {
+        count += ticket.purchases.filter(purchase => !purchase.claimed).length;
+      });
+    }
+  });
+
+  return count;
+};
 
 function MyPurchasesScreen({route}) {
   const [purchases, setPurchases] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('unclaimed'); // initialize filter state as 'all'
-  const [loading, setLoading] = useState(false);
+
+  const [unclaimedCount, setUnclaimedCount] = useState(0);
+  const [upcomingCount, setUpcomingCount] = useState(0);
+  const [pastCount, setPastCount] = useState(0);
 
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
-  const {requestRefresh} = route.params || {};
+
   // const apiUrl = API_URL_PROD;
-  const handleFilterChange = newFilter => {
-    setFilter(newFilter);
-  };
 
-  const handleRefresh = async (filter) => {setLoading(true);
-    await reload(filter); // include current filter when refreshing
-    setLoading(false);
-  };
+  const countAllFilters = async () => {
 
-  const filterPurchases = (data, filterType) => {
-    const currentTime = Date.now();
-
-    let filteredData;
-
-    if (filterType === 'upcoming' || filterType === 'past') {
-
-      filteredData = data.filter(event => {
-        if (filterType === 'upcoming') {
-          return event.open_time * 1000 > currentTime;
-        } else if (filterType === 'past') {
-          return event.open_time * 1000 <= currentTime;
-        }
-      });
-    } else {
-
-      filteredData = data.filter((event) => {
-
-        event.tickets = event.tickets.filter((ticket) => {
-
-          ticket.purchases = ticket.purchases.filter((purchase) => {
-            return !purchase.claimed;
-          });
-
-          return ticket.purchases.length > 0;
-
-        });
-
-        return event.tickets.length > 0;
-
-      });
-
-    }
-
-    // If the filterType is 'unclaimed', further refine each event to only contain unclaimed tickets
-
-
-    return filteredData;
-  };
-
-
-
-
-  const reload = async () => {
-
-    setLoading(true);
-    await loadPurchases();
-    await fetchAndFilterPurchases();
-    setLoading(false);
+    setUnclaimedCount(await countPurchases('unclaimed'));
+    setUpcomingCount(await countPurchases('upcoming'));
+    setPastCount(await countPurchases('past'));
 
   };
 
-  const fetchAndFilterPurchases = async () => {
+  useEffect(() => {
+
+    filterData();
+
+  }, [])
+
+  useEffect(() => {
+
+    filterData();
+    countAllFilters()
+  }, [filter]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // The code here will run every time the screen is focused/navigated to
+      let {requestRefresh} = route.params || {};
+
+      if (requestRefresh){
+        console.log('refreshing');
+        reload();
+        requestRefresh = false;
+      } else {
+        filterData();
+      }
+
+      return () => {
+        // Optional: The code here will run when the screen is navigated away from
+      };
+    }, []) // You can add any dependencies here if needed
+  );
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await reload(); // include current filter when refreshing
+    setRefreshing(false);
+  };
+
+  const filterData = async () => {
     const storedData = JSON.parse(await AsyncStorage.getItem('UserPurchases'));
     const filteredData = filterPurchases(storedData, filter);
     setPurchases(filteredData);
   };
 
-  useEffect(() => {
+  const reload = async () => {
 
-    if (requestRefresh){
-      reload();
-    } else {
-      fetchAndFilterPurchases();
-    }
-  }, [])
+    setRefreshing(true);
+    await loadPurchases();
+    await filterData();
+    await countAllFilters();
+    setRefreshing(false);
 
-  useEffect(() => {
-
-    fetchAndFilterPurchases();
-  }, [filter]);
+  };
 
   const toggleEventExpanded = index => {
     const newPurchases = [...purchases];
@@ -117,31 +167,6 @@ function MyPurchasesScreen({route}) {
     newPurchases[eventIndex].tickets[ticketIndex].isExpanded =
       !newPurchases[eventIndex].tickets[ticketIndex].isExpanded;
     setPurchases(newPurchases);
-  };
-
-  const handleTransfer = async askId => {
-    setRefreshing(true);
-    const userId = await AsyncStorage.getItem('user_id');
-    const response = await fetch(`${apiUrl}/transfers/${askId}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        'user_id': userId,
-      })
-    });
-    const body = await response.json();
-
-    if (response.ok) {
-      // Assuming the API response contains a 'transfer_url' field
-      const transferUrl = body.transfer_url;
-      Linking.openURL(transferUrl);
-    } else {
-      console.error('Failed to fetch transfer URL: ', body);
-      if (body.reason === 'TicketNoLongerAvailable'){
-        Alert.alert('Ticket no longer available to claim');
-        reload();
-      }
-    }
-    setRefreshing(false);
   };
 
   const getTitle = (filter) => {
@@ -180,36 +205,35 @@ function MyPurchasesScreen({route}) {
         <Text style={styles.title}>Your Purchases</Text>
       </View>
       <View style={styles.filterContainer}>
-        <TouchableOpacity onPress={() => handleFilterChange('unclaimed')}>
+        <TouchableOpacity onPress={() => setFilter('unclaimed')}>
           <Text
             style={
               filter === 'unclaimed' ? styles.filterTextActive : styles.filterText
             }>
-            Unclaimed
+            Unclaimed - {unclaimedCount}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleFilterChange('upcoming')}>
+        <TouchableOpacity onPress={() => setFilter('upcoming')}>
           <Text
             style={
               filter === 'upcoming' ? styles.filterTextActive : styles.filterText
             }>
-            Upcoming
+            Upcoming - {upcomingCount}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleFilterChange('past')}>
+        <TouchableOpacity onPress={() => setFilter('past')}>
           <Text
             style={
               filter === 'past'
                 ? styles.filterTextActive
                 : styles.filterText
             }>
-            Past
+            Past - {pastCount}
           </Text>
         </TouchableOpacity>
       </View>
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : purchases && purchases.length > 0 ? (
+      {
+      purchases && purchases.length > 0 ? (
         purchases.map((event, eventIndex) => (
           <View key={eventIndex}>
             <TouchableOpacity
@@ -260,8 +284,11 @@ function MyPurchasesScreen({route}) {
                                     onPress={() =>
                                       handleTransfer(
                                         ticket.purchases[purchaseId].ask_id,
+                                        setRefreshing
                                       )
-                                    }>
+                                    }
+                                    disabled={refreshing}
+                                  >
                                     <Text style={styles.transferButtonText}>
                                       Claim Ticket
                                     </Text>

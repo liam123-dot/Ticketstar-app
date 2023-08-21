@@ -72,12 +72,17 @@ function ConfirmVerificationCodeScreen({navigation, route}) {
             <View
               style={{
                 flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
+                // alignItems: /'center',
+                // justifyContent: 'center',
                 width: '75%',
                 bottom: '2%',
+                marginTop: 10,
+                marginBottom: 20,
               }}>
-              <Text>A verification email has been sent to: {email}</Text>
+              <Text style={{fontSize: 14, textAlign: 'left'}}>
+                A verification email has been sent to:
+                <Text style={{fontWeight: 'bold', fontSize: 16}}> {email}</Text>
+              </Text>
               <InputField
                 placeHolder={'Verification Code'}
                 validationRegex={'/\\S/'}
@@ -86,6 +91,7 @@ function ConfirmVerificationCodeScreen({navigation, route}) {
                 onValidChange={setIsVerificartionCodeInputValid}
               />
             </View>
+
             <FinePrintButton title={'Resend code'} handlePress={handleResend} />
             <CustomButton
               title={'Submit'}
