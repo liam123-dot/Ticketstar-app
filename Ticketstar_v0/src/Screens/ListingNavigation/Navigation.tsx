@@ -18,6 +18,7 @@ import MainPage from "../Authentication/MainPage";
 import AntDesign from "react-native-vector-icons/AntDesign";
 import ForgotPasswordScreen from "../Authentication/ForgotPasswordScreen";
 import PaymentScreen from "../Buying/PaymentScreen";
+import { MainColour } from "../../OverallStyles";
 
 const MainStack = createStackNavigator();
 const HomeStack = createStackNavigator();
@@ -30,7 +31,7 @@ function HomeTabs() {
       screenOptions={({route}) => ({
         headerShown: false,
         tabBarStyle: {
-          // backgroundColor: "#95A1F1",
+          backgroundColor: "white",
           height: '8%',
         },
         tabBarShowLabel: false,
@@ -49,7 +50,7 @@ function HomeTabs() {
 
           // You can return any component that you like here!
           // Change the color based on whether the route is focused
-          const iconColor = focused ? 'blue' : 'black';
+          const iconColor = focused ? MainColour : 'black';
           return <AntDesign name={iconName} size={30} color={iconColor} style={{top: 10}} />;
         },
       })}

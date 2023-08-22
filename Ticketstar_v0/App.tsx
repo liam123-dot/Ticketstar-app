@@ -58,7 +58,7 @@ export default function App() {
       }
       merchantIdentifier={'merchant.com.ticketstar'}>
       <SafeAreaProvider>
-        <SafeAreaView style={{flex: 1}}>
+        <SafeAreaView style={{flex: 1, backgroundColor: 'white'}}>
           <Navigation />
         </SafeAreaView>
       </SafeAreaProvider>

@@ -15,6 +15,7 @@ import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {formatTimes} from '../../utilities';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AntDesign from 'react-native-vector-icons/AntDesign';
+import { MainColour } from "../../OverallStyles";
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -100,7 +101,7 @@ function SearchTab({type, data, loading}) {
     <View style={styles.container}>
       <ScrollView>
         {loading ? (
-            <ActivityIndicator size="large" color="#0000ff" />
+            <ActivityIndicator size="large" color={MainColour} />
           ): (
         <ListContainer title={type} objects={data} />)}
       </ScrollView>
@@ -180,12 +181,11 @@ function SearchScreen() {
   }
 
   return (
-    <SafeAreaView style={{flex: 1}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: 'white'}}>
       <View style={{flexDirection: 'row', alignItems: 'center', margin: 5}}>
         <TextInput
           style={[
             styles.searchInput,
-            {flex: 1, borderColor: '#95A1F1', borderWidth: 1},
           ]}
           placeholder="Search"
           value={searchText}
@@ -203,7 +203,7 @@ function SearchScreen() {
       <Tab.Navigator
         initialRouteName="Events"
         screenOptions={{
-          tabBarStyle: {borderBottomColor: '#95A1F1', borderBottomWidth: 1},
+          tabBarStyle: {borderBottomColor: MainColour, borderBottomWidth: 1},
           tabBarActiveTintColor: '#000',
           tabBarInactiveTintColor: 'gray',
         }}>
@@ -238,13 +238,16 @@ function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'white',
   },
   searchInput: {
     margin: 5,
     padding: 10,
     borderRadius: 5,
-    backgroundColor: '#fff',
+    backgroundColor: 'white',
+    flex: 1,
+    borderWidth: 1,
+    borderColor: MainColour,
   },
   listItem: {
     flexDirection: 'row',
@@ -263,7 +266,6 @@ const styles = StyleSheet.create({
   listItemTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    // color: '#95A1F1',
   },
   listItemSubtitle: {
     fontSize: 14,

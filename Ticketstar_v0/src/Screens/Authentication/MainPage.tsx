@@ -47,7 +47,7 @@ export default function MainPage({navigation}) {
   };
 
   return (
-    <SafeAreaView style={{flex: 1}}>
+    <SafeAreaView style={{flex: 1, backgroundColor: 'white'}}>
 
       <Logo/>
 

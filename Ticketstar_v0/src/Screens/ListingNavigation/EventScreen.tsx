@@ -168,6 +168,7 @@ function EventScreen({route, navigation}) {
       );
       const event_data = await response.json();
       setEventData(event_data);
+      console.log(event_data);
 
       let tickets = {};
 

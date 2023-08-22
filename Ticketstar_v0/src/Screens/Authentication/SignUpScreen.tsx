@@ -91,6 +91,7 @@ const SignUpScreen = ({navigation}) => {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
+          backgroundColor: 'white',
         }}>
         <BackButton navigation={navigation} params={'MainPage'}/>
 

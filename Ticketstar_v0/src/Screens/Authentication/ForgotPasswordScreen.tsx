@@ -95,7 +95,7 @@ export default function ForgotPasswordScreen({navigation}) {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={{flex: 1}}>
+      <SafeAreaView style={{flex: 1, backgroundColor: 'white'}}>
         <BackButton navigation={navigation} params={'SignIn'} />
         <Logo />
 

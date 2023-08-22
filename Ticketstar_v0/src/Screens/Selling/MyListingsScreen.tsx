@@ -271,25 +271,28 @@ function MyListingsScreen({route}) {
         // include the RefreshControl component in ScrollView
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={'black'}/>
       }>
+
       <View style={styles.titleContainer}>
-        <Text style={styles.title}>Your Listings</Text>
-      </View>
-      <View style={styles.filterContainer}>
-        <TouchableOpacity onPress={() => setFilter('all')}>
-          <Text
-            style={filter === 'all' ? styles.filterTextActive : styles.filterText}
-          >All - {allCount}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setFilter('sold')}>
-          <Text
-            style={filter === 'sold' ? styles.filterTextActive : styles.filterText}
-          >Sold - {fulfilledCount}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setFilter('unsold')}>
-          <Text
-            style={filter === 'unsold' ? styles.filterTextActive : styles.filterText}
-          >Unsold - {unfulfilledCount}</Text>
-        </TouchableOpacity>
+        <View>
+          <Text style={styles.title}>Your Listings</Text>
+        </View>
+        <View style={styles.filterContainer}>
+          <TouchableOpacity onPress={() => setFilter('unsold')}>
+            <Text
+              style={filter === 'unsold' ? styles.filterTextActive : styles.filterText}
+            >Unsold - {unfulfilledCount}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setFilter('sold')}>
+            <Text
+              style={filter === 'sold' ? styles.filterTextActive : styles.filterText}
+            >Sold - {fulfilledCount}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setFilter('all')}>
+            <Text
+              style={filter === 'all' ? styles.filterTextActive : styles.filterText}
+            >All - {allCount}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {
@@ -372,9 +375,6 @@ function MyListingsScreen({route}) {
                               />
                             ) : ticket.listings[askId].ownership ? (
                               <>
-                                {/*<RelistButton*/}
-                                {/*  ask_id={ticket.listings[askId].ask_id}*/}
-                                {/*/>*/}
                               </>
                             ) : (
                               <></>
@@ -412,8 +412,8 @@ function MyListingsScreen({route}) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 10,
+    backgroundColor: 'white',
+    paddingHorizontal: 5,
   },
   listItem: {
     flexDirection: 'row',
@@ -511,11 +511,19 @@ const styles = StyleSheet.create({
     color: 'gray',
   },
   titleContainer: {
-    backgroundColor: '#f8f8f8',
-    paddingVertical: 20,
-    paddingHorizontal: 10,
-    marginBottom: 0,
-    borderRadius: 10,
+    backgroundColor: 'white',
+    padding: 10,
+    marginTop: 10,
+    marginVertical: 5,
+    borderRadius: 5,
+    // shadowColor: "#000",
+    // shadowOffset: {
+    //   width: 0,
+    //   height: 2
+    // },
+    // shadowOpacity: 0.25,
+    // shadowRadius: 3.84,
+    // elevation: 5,
   },
   title: {
     fontSize: 28,
@@ -523,30 +531,12 @@ const styles = StyleSheet.create({
     color: '#333333',
     textAlign: 'center',
   },
-  relistButton: {
-    backgroundColor: '#ff9800', // You can change this to any color you like
-    paddingVertical: 18,
-    paddingHorizontal: 14,
-    marginHorizontal: 10,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  relistButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 18,
-  },
   filterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 0,
     marginTop: 0,
     padding: 10,
-    backgroundColor: '#f8f8f8',
     borderRadius: 10,
   },
   filterText: {

@@ -325,7 +325,7 @@ function MyPurchasesScreen({route}) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'white',
     paddingHorizontal: 10,
   },
   listItem: {
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
     color: 'gray',
   },
   titleContainer: {
-    backgroundColor: '#f8f8f8',
+    backgroundColor: 'white',
     paddingVertical: 20,
     paddingHorizontal: 10,
     marginBottom: 0,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     marginTop: 0,
     padding: 10,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: 'white',
     borderRadius: 10,
   },
   filterText: {
