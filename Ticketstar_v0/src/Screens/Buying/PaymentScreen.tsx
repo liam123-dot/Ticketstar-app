@@ -1,6 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, {useEffect, useState} from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   confirmPlatformPayPayment,
   isPlatformPaySupported,
@@ -8,16 +16,17 @@ import {
   PlatformPayButton,
   presentPaymentSheet,
   initPaymentSheet,
-} from "@stripe/stripe-react-native";
+} from '@stripe/stripe-react-native';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
-import { loadPurchases } from "../../Dataloaders";
+import {loadPurchases} from '../../Dataloaders';
+import {MainColour} from '../../OverallStyles';
+import {BackButton} from '../BackButton';
 
-export default function PaymentScreen({ navigation, route }) {
-
+export default function PaymentScreen({navigation, route}) {
   // const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
   const apiUrl = API_URL_PROD;
 
-  const { price, askId, reserveTimeout, eventName, ticketName } = route.params;
+  const {price, askId, reserveTimeout, eventName, ticketName} = route.params;
 
   const [isApplePaySupported, setIsApplePaySupported] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -32,13 +41,17 @@ export default function PaymentScreen({ navigation, route }) {
     return Math.max(reserveTimeout - currentTime, 0);
   };
 
-  const getDisplayTime = (timeRemaining) => {
-    const minutes = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+  const getDisplayTime = timeRemaining => {
+    const minutes = Math.floor(timeRemaining / 60)
+      .toString()
+      .padStart(2, '0');
     const seconds = (timeRemaining % 60).toString().padStart(2, '0');
     return `${minutes} minutes, ${seconds} seconds`;
   };
 
-  const [countdown, setCountdown] = useState(getDisplayTime(calculateTimeRemaining()));
+  const [countdown, setCountdown] = useState(
+    getDisplayTime(calculateTimeRemaining()),
+  );
 
   useEffect(() => {
     fetchPaymentSheetParams();
@@ -60,7 +73,7 @@ export default function PaymentScreen({ navigation, route }) {
     return () => clearInterval(timer);
   }, []);
   useEffect(() => {
-    (async function() {
+    (async function () {
       setIsApplePaySupported(await isPlatformPaySupported());
     })();
   }, []);
@@ -89,15 +102,23 @@ export default function PaymentScreen({ navigation, route }) {
         }),
       });
 
-      const response_data = await response.json();
+      if (response.ok) {
 
-      const { paymentIntent, ephemeralKey, customer } = response_data;
+        const response_data = await response.json();
 
-      setPaymentIntent(paymentIntent);
-      setEphemeralKey(ephemeralKey);
-      setCustomer(customer);
-      setLoaded(true);
+        const { paymentIntent, ephemeralKey, customer } = response_data;
 
+        setPaymentIntent(paymentIntent);
+        setEphemeralKey(ephemeralKey);
+        setCustomer(customer);
+        setLoaded(true);
+
+      } else {
+
+        navigation.goBack();
+        Alert.alert('Oops, something went wrong', 'Please try again later');
+
+      }
     } catch (error) {
       console.error(error);
       Alert.alert('Network Error', 'Failed to fetch payment sheet params.');
@@ -105,9 +126,26 @@ export default function PaymentScreen({ navigation, route }) {
     setLoading(false);
   };
 
-  const openPaymentSheet = async () => {
+  const navigateToPurchases = async () => {
+    const refresher = async () => {
+      await AsyncStorage.setItem('refreshPurchases', 'true');
+    };
 
-    const { error } = await presentPaymentSheet();
+    refresher();
+    navigation.goBack();
+    navigation.navigate('Home', {
+      screen: 'MyPurchases',
+    });
+
+    Alert.alert('Payment Successful', 'Thanks for your purchase!', [
+      {
+        text: 'OK',
+      },
+    ]);
+  }
+
+  const openPaymentSheet = async () => {
+    const {error} = await presentPaymentSheet();
 
     if (error) {
       if (error.code === 'Canceled') {
@@ -115,73 +153,54 @@ export default function PaymentScreen({ navigation, route }) {
         Alert.alert(`Error code: ${error.code}`, error.message);
       }
     } else {
-      loadPurchases();
-      Alert.alert("Payment Successful", "Thanks for your purchase!", [
-        {
-          text: 'OK',
-          onPress: () => {
-            navigation.goBack();
-            navigation.navigate('Home', {
-              screen: 'MyPurchases',
-              params: {
-                requestRefresh: true,
-              }
-            });
-          },
-        },
-      ]);
+      await navigateToPurchases();
       // Optionally navigate the user to another screen or perform other actions
     }
   };
 
   const pay = async () => {
-    const { error } = await confirmPlatformPayPayment(
-      paymentIntent,
-      {
-        applePay: {
-          cartItems: [
-            {
-              label: 'Total',
-              amount: '12.75',
-              paymentType: PlatformPay.PaymentType.Immediate,
-            },
-          ],
-          merchantCountryCode: 'GB',
-          currencyCode: 'GBP',
-        },
-      }
-    );
+    const { error } = await confirmPlatformPayPayment(paymentIntent, {
+      applePay: {
+        cartItems: [
+          {
+            label: 'Total',
+            amount: price.toString(),
+            paymentType: PlatformPay.PaymentType.Immediate,
+          },
+        ],
+        merchantCountryCode: 'GB',
+        currencyCode: 'GBP',
+      },
+    });
     if (error) {
       console.log(error);
       // handle error
     } else {
-      Alert.alert('Success', 'Check the logs for payment intent details.');
-      console.log(JSON.stringify(paymentIntent, null, 2));
+      await navigateToPurchases();
     }
-  };
+    ;
+  }
 
   const PayByCard = () => {
-
     const handlePress = async () => {
-
       await initPaymentSheet({
-
-          merchantDisplayName: 'Ticketstar',
-          customerId: customer,
-          customerEphemeralKeySecret: ephemeralKey,
-          paymentIntentClientSecret: paymentIntent,
-          // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
-          //methods that complete payment after a delay, like SEPA Debit and Sofort.
-          allowsDelayedPaymentMethods: false,
-        }
-      );
+        merchantDisplayName: 'Ticketstar',
+        customerId: customer,
+        customerEphemeralKeySecret: ephemeralKey,
+        paymentIntentClientSecret: paymentIntent,
+        // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
+        //methods that complete payment after a delay, like SEPA Debit and Sofort.
+        allowsDelayedPaymentMethods: false,
+      });
 
       openPaymentSheet();
-
-    }
+    };
 
     return (
-      <TouchableOpacity style={styles.payButton} onPress={handlePress} disabled={!loaded}>
+      <TouchableOpacity
+        style={styles.payButton}
+        onPress={handlePress}
+        disabled={!loaded}>
         <Text style={styles.buttonText}>Pay by Card</Text>
       </TouchableOpacity>
     );
@@ -189,40 +208,43 @@ export default function PaymentScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <BackButton navigation={navigation} goBack={true} />
 
       {/* Titles and Countdown */}
       <View style={styles.titleContainer}>
         <Text style={styles.titleText}>{eventName}</Text>
         <Text style={styles.subtitleText}>{ticketName}</Text>
         <Text style={styles.countdownText}>Reserved for: {countdown}</Text>
-        <Text style={[styles.countdownText, {color: 'black'}]}>Price: £{price}</Text>
+        <Text style={[styles.countdownText, {color: 'black'}]}>
+          Price: £{price}
+        </Text>
       </View>
 
       {/* Payment Buttons */}
       <View style={styles.paymentContainer}>
-
-        {loading ?
-          <ActivityIndicator size="large" color="#0000ff" />
-          :
+        {loading ? (
+          <ActivityIndicator size="large" color={MainColour} />
+        ) : (
           <>
-          <PayByCard/>
-            {isApplePaySupported && (<PlatformPayButton
-              onPress={pay}
-              type={PlatformPay.ButtonType.Pay}
-              appearance={PlatformPay.ButtonStyle.Black}
-              borderRadius={4}
-              style={{
-                width: '100%',
-                height: 50,
-              }}
-              disabled={!loaded}
-            />)}
+            <PayByCard />
+            {isApplePaySupported && (
+              <PlatformPayButton
+                onPress={pay}
+                type={PlatformPay.ButtonType.Pay}
+                appearance={PlatformPay.ButtonStyle.Black}
+                borderRadius={4}
+                style={{
+                  width: '100%',
+                  height: 50,
+                }}
+                disabled={!loaded}
+              />
+            )}
           </>
-        }
+        )}
       </View>
-
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -235,18 +257,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15, // Horizontal padding for better appearance
     paddingVertical: 20,
     margin: 10,
-    backgroundColor: '#f7f7f7',  // Lighter color than the main background color
+    backgroundColor: '#f7f7f7', // Lighter color than the main background color
     borderWidth: 1,
-    borderColor: '#e0e0e0',  // Light gray border
-    borderRadius: 5,  // Rounded corners
-    shadowColor: "#000",  // shadow for iOS
+    borderColor: '#e0e0e0', // Light gray border
+    borderRadius: 5, // Rounded corners
+    shadowColor: '#000', // shadow for iOS
     shadowOffset: {
       width: 0,
       height: 2,
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,// elevation for Android
+    elevation: 5, // elevation for Android
   },
   paymentContainer: {
     paddingBottom: 20, // Add some padding at the bottom for spacing

@@ -9,6 +9,8 @@ export default function InputField({
   errorMessage,
   onValidChange,
   secureEntry,
+  custom_error,
+  type,
 }) {
   const [borderColor, setBorderColor] = useState('rgba(123, 123, 123, 0.25)');
   const [error, setError] = useState(false);
@@ -38,15 +40,21 @@ export default function InputField({
   });
 
   useEffect(() => {
-    const isValid = text.match(validationRegex);
-    if (!isValid && text.length > 0) {
-      setBorderColor('#FF0000');
-      setError(true);
+    if (validationRegex) {
+      const isValid = text.match(validationRegex);
+      if (!isValid && text.length > 0) {
+        setBorderColor('#FF0000');
+        setError(true);
+      } else {
+        setBorderColor('rgba(123, 123, 123, 0.25)');
+        setError(false);
+      }
+      onValidChange(isValid);
     } else {
-      setBorderColor('rgba(123, 123, 123, 0.25)');
-      setError(false);
+      if (onValidChange) {
+        onValidChange(true);
+      }
     }
-    onValidChange(isValid);
   }, [text]);
 
   return (
@@ -58,8 +66,9 @@ export default function InputField({
         value={text}
         onChangeText={setText}
         secureTextEntry={secureEntry}
+        keyboardType={type ? type: 'default'}
       />
-      {error && errorMessage && <Text style={InputFieldStyles.errorText}>{errorMessage}</Text>}
+      {(error || custom_error) && errorMessage && <Text style={InputFieldStyles.errorText}>{errorMessage}</Text>}
     </>
   );
 }

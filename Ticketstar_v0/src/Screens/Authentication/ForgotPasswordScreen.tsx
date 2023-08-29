@@ -13,6 +13,7 @@ import InputField from './InputField';
 import CustomButton from './CustomButton';
 import {API_URL_PROD} from '@env';
 import {BackButton} from '../BackButton';
+import { MainColour } from "../../OverallStyles";
 
 export default function ForgotPasswordScreen({navigation}) {
   const apiUrl = API_URL_PROD;
@@ -102,7 +103,7 @@ export default function ForgotPasswordScreen({navigation}) {
         {loading ? (
           <View
             style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-            <ActivityIndicator size="large" color="#0000ff" />
+            <ActivityIndicator size="large" color={MainColour} />
           </View>
         ) : (
           <>
@@ -137,11 +138,12 @@ export default function ForgotPasswordScreen({navigation}) {
                     text={verificationCode}
                     setText={setVerificationCode}
                     onValidChange={setVerificationCodeInputValid}
+                    type={'numeric'}
                   />
                   <InputField
                     placeHolder={'New Password'}
                     validationRegex={
-                      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/
+                      /^(?!\s+)(?!.*\s+$)(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[$^*.[\]{}()?"!@#%&/\\,><':;|_~`=+\- ])[A-Za-z0-9$^*.[\]{}()?"!@#%&/\\,><':;|_~`=+\- ]{8,256}$/
                     }
                     errorMessage={
                       'Password requirements:\n8 characeters\nAt least one uppercase character\nAt least one number\nAt least one special character'

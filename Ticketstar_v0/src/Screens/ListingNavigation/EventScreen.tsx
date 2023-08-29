@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {formatTimes} from '../../utilities';
 import { convertToGMT } from "../../utilities";
 import { BackButton } from "../BackButton";
+import { MainColour } from "../../OverallStyles";
 
 function ListItem({object, onSelect, isSelected}) {
   return (
@@ -25,14 +26,6 @@ function ListItem({object, onSelect, isSelected}) {
         <Text style={styles.text}>{object.name}</Text>
         {object.listing ? (
           <View style={{flexDirection: 'row'}}>
-            <Text
-              style={{
-                color: '#43a047',
-                fontSize: 20,
-                flex: 1,
-              }}>
-              Available: {object.listing_count}
-            </Text>
             <Text
               style={{
                 fontWeight: 'bold',
@@ -72,11 +65,11 @@ function EventScreen({route, navigation}) {
     'Buy - No Ticket Selected',
   );
   const [buyButtonDisabled, setBuyButtonDisabled] = useState(true);
-  const [cheapest, setCheapest] = useState(null);
   const [askId, setAskId] = useState(null);
   const [price, setPrice] = useState(null);
 
   const handleBuyPress = () => {
+    // console.log(ticketData);
     if (!ticketData[selectedTicketId].listing.purchasable){
       Alert.alert('You cannot purchase your own listing');
     } else {
@@ -92,12 +85,13 @@ function EventScreen({route, navigation}) {
         });
 
         const data = await response.json();
+        console.log(data);
 
         if (response.status === 400) {
           fetchData();
           setSelectedTicketId(null);
 
-          if (data.reason === 'ListingFulfilled') {
+          if (data.reason === 'ListingReserved' || data.reason === 'ListingFulfilled') {
             Alert.alert('Listing no longer available');
           } else if (data.reason === 'NotPurchasableBySeller') {
             Alert.alert('You cannot purchase your own listing');
@@ -116,22 +110,8 @@ function EventScreen({route, navigation}) {
         }
       };
 
-      if (!cheapest) {
-        Alert.alert(
-          'You are selling this ticket for a lower price',
-          'Are you sure you want to continue',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            { text: 'Yes', onPress: () => navigate() },
-          ],
-        );
-      } else {
-        navigate();
-      }
-    }
+      navigate();
+    }4
   };
 
   const handleSellPress = async () => {
@@ -168,7 +148,6 @@ function EventScreen({route, navigation}) {
       );
       const event_data = await response.json();
       setEventData(event_data);
-      console.log(event_data);
 
       let tickets = {};
 
@@ -214,7 +193,6 @@ function EventScreen({route, navigation}) {
 
           setBuyButtonTitle(`Buy - £${parseFloat(price).toFixed(2)}`);
           setBuyButtonDisabled(false);
-          setCheapest(listing.cheapest);
           setAskId(listing.ask_id);
           setPrice(price);
         } else {
@@ -229,7 +207,6 @@ function EventScreen({route, navigation}) {
       refreshing ? 'No Ticket Selected' : 'No Tickets',
     );
     setBuyButtonDisabled(true);
-    setCheapest(null);
     setAskId(null);
     setPrice(null);
   };
@@ -238,7 +215,7 @@ function EventScreen({route, navigation}) {
     <View style={styles.screen}>
       <View style={styles.container}>
         {isLoading ? (
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color={MainColour} />
         ) : (
           <>
             <BackButton navigation={navigation} goBack={true} styles={{
@@ -256,11 +233,11 @@ function EventScreen({route, navigation}) {
               <Image
                 source={{uri: image_url}}
                 style={styles.eventImage}
-                PlaceholderContent={<ActivityIndicator />} // A placeholder component for the image
+                PlaceholderContent={<ActivityIndicator color={MainColour}/>} // A placeholder component for the image
               />
               <Text style={styles.title}>{name}</Text>
               <Text style={styles.timeText}>
-                {open_time && close_time ? formatTimes(open_time, close_time) : convertToGMT(open_time)}
+                {open_time && close_time ? formatTimes(open_time * 1000, close_time * 1000) : convertToGMT(open_time)}
               </Text>
               <Text style={{    color: '#666',
                 fontStyle: 'italic', alignSelf: 'flex-end', fontSize: 18}}>Recent searches: {eventData?.search_count ? eventData.search_count: '0'}</Text>
@@ -271,6 +248,7 @@ function EventScreen({route, navigation}) {
                   <RefreshControl
                     refreshing={refreshing}
                     onRefresh={handleRefresh}
+                    tintColor={MainColour}
                   />
                 }
                 renderItem={({item}) => (

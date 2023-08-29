@@ -4,24 +4,70 @@ import {
   View,
   Alert,
   SafeAreaView,
-  ActivityIndicator, Keyboard, TouchableWithoutFeedback, Text
+  ActivityIndicator,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Text, TouchableOpacity, Linking
 } from "react-native";
 import Logo from './Logo';
 import FinePrintButton from './FinePrintButton';
 import CustomButton from './CustomButton';
 import InputField from './InputField';
-import { BackButton } from "../BackButton";
+import {BackButton} from '../BackButton';
+import {MainColour} from '../../OverallStyles';
+import CheckBox from "@react-native-community/checkbox";
 
 const nameValidation = /^.{2,}$/;
 
 const emailValidation = /^[^\s@]+@exeter\.ac\.uk$/;
 
+const AgreementBox = ({ textParts, links, consentValue, setConsentValue, required }) => {
+  const handlePress = (url) => {
+    Linking.openURL(url);
+  };
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'flex-start',  // Align to the top
+        justifyContent: 'center',
+        width: '75%',
+        marginBottom: 10,
+      }}>
+      <View style={{flex: 0.1, justifyContent: 'center'}}>
+        <CheckBox
+          value={consentValue}
+          onValueChange={setConsentValue}
+        />
+      </View>
+      <View style={{ marginLeft: 10, flex: 0.9, justifyContent: 'center' }}>
+        <Text style={{color: required ? 'red': 'black', fontWeight: required ? 'bold': 'normal'}}>
+          {textParts.map((part, index) => (
+            links[index] ?
+              <Text key={index}>
+                <Text onPress={() => handlePress(links[index])} style={{ textDecorationLine: 'underline' }}>
+                  {part}
+                </Text>
+              </Text>
+              :
+              <Text key={index}>{part}</Text>
+          ))}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+
+
 const passwordValidation =
-  /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+  /^(?!\s+)(?!.*\s+$)(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[$^*.[\]{}()?"!@#%&/\\,><':;|_~`=+\- ])[A-Za-z0-9$^*.[\]{}()?"!@#%&/\\,><':;|_~`=+\- ]{8,256}$/;
 
 const SignUpScreen = ({navigation}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
@@ -29,6 +75,10 @@ const SignUpScreen = ({navigation}) => {
   const [isLastNameValid, setIsLastNameValid] = useState(false);
   const [isEmailValid, setIsEmailValid] = useState(false);
   const [isPasswordValid, setIsPasswordValid] = useState(false);
+  const [isConfirmPasswordValid, setIsConfirmPasswordValid] = useState(true);
+
+  const [hasTermsConsent, setHasTermsConsent] = useState(false);
+  const [hasMarketingConsent, setHasMarketingConsent] = useState(false);
 
   const [loading, setLoading] = useState(false);
 
@@ -40,6 +90,8 @@ const SignUpScreen = ({navigation}) => {
       password,
       firstName,
       lastName,
+      hasTermsConsent,
+      hasMarketingConsent,
     };
 
     setLoading(true);
@@ -79,10 +131,18 @@ const SignUpScreen = ({navigation}) => {
   };
 
   const handleSetEmail = email => {
-
     setEmail(email.toLowerCase());
-
   };
+
+  const handleConfirmChange = text => {
+    setConfirmPassword(text);
+    if (password !== text){
+      console.log(false);
+      setIsConfirmPasswordValid(false);
+    } else {
+      setIsConfirmPasswordValid(true);
+    }
+  }
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -93,12 +153,12 @@ const SignUpScreen = ({navigation}) => {
           alignItems: 'center',
           backgroundColor: 'white',
         }}>
-        <BackButton navigation={navigation} params={'MainPage'}/>
+        <BackButton navigation={navigation} params={'MainPage'} />
 
         <Logo />
 
         {loading ? (
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color={MainColour} />
         ) : (
           <>
             <View
@@ -142,7 +202,30 @@ const SignUpScreen = ({navigation}) => {
                 onValidChange={setIsPasswordValid}
                 secureEntry={true}
               />
+              <InputField
+                placeHolder={'Confirm Password'}
+                text={confirmPassword}
+                setText={handleConfirmChange}
+                errorMessage={'Passwords do not match'}
+                secureEntry={true}
+                custom_error={!isConfirmPasswordValid}
+              />
             </View>
+
+            <AgreementBox
+              textParts={['I agree to receive marketing and promotional emails']}
+              links={[null]}
+              consentValue={hasMarketingConsent}
+              setConsentValue={setHasMarketingConsent}
+            />
+
+            <AgreementBox
+              textParts={['I agree to the ', 'Terms of Service', ' and ', 'Privacy Policy']}
+              links={[null, 'https://ticketstar.uk/terms-of-service', null, 'https://ticketstar.uk/privacy-policy']}
+              consentValue={hasTermsConsent}
+              setConsentValue={setHasTermsConsent}
+              required={!hasTermsConsent}
+            />
 
             <CustomButton
               title={'Sign Up'}
@@ -151,7 +234,9 @@ const SignUpScreen = ({navigation}) => {
                   isFirstNameValid &&
                   isLastNameValid &&
                   isEmailValid &&
-                  isPasswordValid
+                  isPasswordValid &&
+                  isConfirmPasswordValid &&
+                    hasTermsConsent
                 )
               }
               handlePress={onSubmit}

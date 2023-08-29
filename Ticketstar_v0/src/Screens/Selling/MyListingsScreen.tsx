@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -6,7 +6,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  RefreshControl, Alert
+  RefreshControl, Alert, Linking
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
@@ -14,6 +14,7 @@ import {formatTimes} from '../../utilities';
 import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {loadListings} from '../../Dataloaders';
 import {handleTransfer} from "../../TicketTransfer";
+import { MainColour } from "../../OverallStyles";
 
 const filterListings = (data, filterType) => {
   // Filter based on ticket's fulfilled status
@@ -144,16 +145,21 @@ function MyListingsScreen({route}) {
 
   const [listings, setListings] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('unsold');
   const [sellerVerified, setSellerVerified] = useState(false);
 
   const [allCount, setAllCount] = useState(0);
   const [fulfilledCount, setFulfilledCount] = useState(0);
   const [unfulfilledCount, setUnfulfilledCount] = useState(0);
 
+  const [pdfClaimable, setPDFClaimable] = useState({});
+
+  const scrollViewRef = useRef(null);
+
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
   useEffect(() => {
+
     const checkSellerEnabled = async () => {
 
       const sellerVerified = await AsyncStorage.getItem('SellerVerified') === 'true';
@@ -168,6 +174,10 @@ function MyListingsScreen({route}) {
     setAllCount(await countListings('all'));
     setFulfilledCount(await countListings('sold'));
     setUnfulfilledCount(await countListings('unsold'));
+
+    if (allCount > 0){
+      setSellerVerified(true);
+    }
 
   };
 
@@ -186,15 +196,18 @@ function MyListingsScreen({route}) {
   useFocusEffect(
     React.useCallback(() => {
       // The code here will run every time the screen is focused/navigated to
-      let {requestRefresh} = route.params || {};
+      const checkRefresher = async () => {
 
-      if (requestRefresh){
-        console.log('refreshing');
-        reload();
-        requestRefresh = false;
-      } else {
-        filterData();
+        const response = await AsyncStorage.getItem('refreshListings');
+
+        if (response === 'true'){
+          reload();
+          await AsyncStorage.setItem('refreshListings', 'false');
+        }
+
       }
+
+      checkRefresher()
 
       return () => {
         // Optional: The code here will run when the screen is navigated away from
@@ -208,8 +221,11 @@ function MyListingsScreen({route}) {
     setRefreshing(false);
   };
 
+  console.log(filter)
+
   const filterData = async () => {
     const storedData = JSON.parse(await AsyncStorage.getItem('UserListings'));
+    console.log('filter data filter: ' + filter)
     const filteredData = filterListings(storedData, filter);
     setListings(filteredData);
   };
@@ -224,9 +240,27 @@ function MyListingsScreen({route}) {
 
   };
 
+  const scrollDown = () => {
+    if (scrollViewRef.current) {
+      // Scroll down to the bottom
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  }
+
   const toggleEventExpanded = index => {
     const newListing = [...listings];
     newListing[index].isExpanded = !newListing[index].isExpanded;
+
+    if (newListing[index].isExpanded) {
+      newListing[index].tickets.forEach(ticket => {
+        ticket.isExpanded = true;  // Expanding all tickets under the event
+      });
+    } else {
+      newListing[index].tickets.forEach(ticket => {
+        ticket.isExpanded = false;  // Collapsing all tickets under the event
+      });
+    }
+
     setListings(newListing);
   };
 
@@ -269,8 +303,10 @@ function MyListingsScreen({route}) {
       style={styles.container}
       refreshControl={
         // include the RefreshControl component in ScrollView
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={'black'}/>
-      }>
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={MainColour}/>
+      }
+      ref={scrollViewRef}
+    >
 
       <View style={styles.titleContainer}>
         <View>
@@ -345,17 +381,52 @@ function MyListingsScreen({route}) {
                               {ticket.listings[askId].listed ? (
                                 <></>
                               ) : ticket.listings[askId].ownership ? (
+
+                                <View>
+
                                 <TouchableOpacity
                                   onPress={() =>
-                                    handleTransfer(ticket.listings[askId].ask_id, setRefreshing)
+                                    handleTransfer(ticket.listings[askId].ask_id, setRefreshing, setPDFClaimable)
                                   }
                                   disabled={refreshing}
                                 >
-                                  <Text style={styles.transferButtonText}>
+                                  {!pdfClaimable[ticket.listings[askId].ask_id] ?
+                                    (<Text style={styles.transferButtonText}>
                                     Re-claim ticket
-                                  </Text>
+                                  </Text>): <Text>Ticket not transferable</Text>
+                                  }
                                 </TouchableOpacity>
-                              ) : (
+
+                                  {pdfClaimable[ticket.listings[askId].ask_id] && (
+                                    <TouchableOpacity
+                                      onPress={() =>
+                                      {
+                                        const openPDFUrl = async () => {
+                                          setRefreshing(true);
+                                          const response = await fetch(
+                                            apiUrl + '/pdf/GetLink',
+                                            {
+                                              method: 'POST',
+                                              body: JSON.stringify({
+                                                ask_id: ticket.listings[askId].ask_id,
+                                              })
+                                            }
+                                          )
+                                          const data = await response.json();
+                                          console.log(data);
+                                          Linking.openURL(data.url);
+                                          setRefreshing(false);
+                                        }
+                                        openPDFUrl();
+                                      }}
+                                    >
+                                      <Text style={[styles.transferButtonText]}>Claim PDF</Text>
+                                    </TouchableOpacity>
+                                  )}
+
+                                </View>
+
+                                ) : (
                                 <Text>Ticket has been reclaimed</Text>
                               )}
                             </View>

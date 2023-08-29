@@ -6,7 +6,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  RefreshControl,
+  RefreshControl, Linking
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
@@ -14,6 +14,7 @@ import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import {formatTimes} from '../../utilities';
 import {loadPurchases } from "../../Dataloaders";
 import {handleTransfer} from "../../TicketTransfer";
+import { MainColour } from "../../OverallStyles";
 
 const filterPurchases = (data, filterType) => {
   const currentTime = Date.now();
@@ -91,6 +92,8 @@ function MyPurchasesScreen({route}) {
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [pastCount, setPastCount] = useState(0);
 
+  const [pdfClaimable, setPDFClaimable] = useState({});
+
   const apiUrl = __DEV__ ? API_URL_LOCAL : API_URL_PROD;
 
   // const apiUrl = API_URL_PROD;
@@ -118,21 +121,26 @@ function MyPurchasesScreen({route}) {
   useFocusEffect(
     React.useCallback(() => {
       // The code here will run every time the screen is focused/navigated to
-      let {requestRefresh} = route.params || {};
 
-      if (requestRefresh){
-        console.log('refreshing');
-        reload();
-        requestRefresh = false;
-      } else {
-        filterData();
-      }
+        const checkRefresher = async () => {
+
+          const response = await AsyncStorage.getItem('refreshPurchases');
+
+          if (response === 'true'){
+            reload();
+            await AsyncStorage.setItem('refreshPurchases', 'false');
+          }
+
+        }
+
+        checkRefresher()
 
       return () => {
         // Optional: The code here will run when the screen is navigated away from
       };
     }, []) // You can add any dependencies here if needed
   );
+
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -157,9 +165,20 @@ function MyPurchasesScreen({route}) {
   };
 
   const toggleEventExpanded = index => {
-    const newPurchases = [...purchases];
-    newPurchases[index].isExpanded = !newPurchases[index].isExpanded;
-    setPurchases(newPurchases);
+    const newPurchase = [...purchases];
+    newPurchase[index].isExpanded = !newPurchase[index].isExpanded;
+
+    if (newPurchase[index].isExpanded) {
+      newPurchase[index].tickets.forEach(ticket => {
+        ticket.isExpanded = true;  // Expanding all tickets under the event
+      });
+    } else {
+      newPurchase[index].tickets.forEach(ticket => {
+        ticket.isExpanded = false;  // Collapsing all tickets under the event
+      });
+    }
+
+    setPurchases(newPurchase);
   };
 
   const toggleTicketExpanded = (eventIndex, ticketIndex) => {
@@ -199,7 +218,7 @@ function MyPurchasesScreen({route}) {
       style={styles.container}
       refreshControl={
         // include the RefreshControl component in ScrollView
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={'black'}/>
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={MainColour}/>
       }>
       <View style={styles.titleContainer}>
         <Text style={styles.title}>Your Purchases</Text>
@@ -277,14 +296,18 @@ function MyPurchasesScreen({route}) {
                                 Price: £{ticket.purchases[purchaseId].price}
                               </Text>
                               <Text style={styles.subSubListItemText}>
-                                {claimed ? (
-                                  <Text>Ticket has been claimed</Text>
+                                {claimed || pdfClaimable[ticket.purchases[purchaseId].ask_id]? (
+                                  pdfClaimable[ticket.purchases[purchaseId].ask_id] ? (
+                                      <Text>Ticket not transferable</Text>
+                                    ): (
+                                  <Text>Ticket has been claimed</Text>)
                                 ) : (
                                   <TouchableOpacity
                                     onPress={() =>
                                       handleTransfer(
                                         ticket.purchases[purchaseId].ask_id,
-                                        setRefreshing
+                                        setRefreshing,
+                                        setPDFClaimable,
                                       )
                                     }
                                     disabled={refreshing}
@@ -293,8 +316,35 @@ function MyPurchasesScreen({route}) {
                                       Claim Ticket
                                     </Text>
                                   </TouchableOpacity>
+
                                 )}
                               </Text>
+                              {pdfClaimable[ticket.purchases[purchaseId].ask_id] && (
+                                <TouchableOpacity
+                                  onPress={() =>
+                                  {
+                                    const openPDFUrl = async () => {
+                                      setRefreshing(true);
+                                      const response = await fetch(
+                                        apiUrl + '/pdf/GetLink',
+                                        {
+                                          method: 'POST',
+                                          body: JSON.stringify({
+                                            ask_id: ticket.purchases[purchaseId].ask_id,
+                                          })
+                                        }
+                                      )
+                                      const data = await response.json();
+                                      console.log(data);
+                                      Linking.openURL(data.url);
+                                      setRefreshing(false);
+                                    }
+                                    openPDFUrl();
+                                  }}
+                                >
+                                  <Text style={[styles.transferButtonText]}>Claim PDF</Text>
+                                </TouchableOpacity>
+                              )}
                             </View>
                           </View>
                         );

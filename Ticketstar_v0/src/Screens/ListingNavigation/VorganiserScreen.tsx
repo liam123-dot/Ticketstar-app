@@ -13,6 +13,7 @@ import {API_URL_LOCAL, API_URL_PROD} from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {convertToGMT} from '../../utilities';
 import { BackButton } from "../BackButton";
+import { MainColour } from "../../OverallStyles";
 
 function ListItem({title, object}) {
   const navigation = useNavigation();
@@ -103,11 +104,11 @@ function VorganiserScreen({navigation, route}) {
       <Image
         source={{uri: image_url}}
         style={styles.eventImage}
-        PlaceholderContent={<ActivityIndicator />} // A placeholder component for the image
+        PlaceholderContent={<ActivityIndicator color={MainColour}/>} // A placeholder component for the image
       />
       <Text style={styles.screenTitle}>{name}</Text>
       {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
+        <ActivityIndicator size="large" color={MainColour} />
       ) : (
         (title === 'Organiser' || title === 'Venue') &&
         events && <ListContainer title="Events:" objects={events} />

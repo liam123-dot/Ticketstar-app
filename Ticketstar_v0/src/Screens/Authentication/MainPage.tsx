@@ -11,11 +11,14 @@ import Logo from "./Logo";
 import CustomButton from "./CustomButton";
 import FinePrintButton from "./FinePrintButton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import AntDesign from "react-native-vector-icons/AntDesign";
+import { CheckAccountEnabled } from "../../CheckAccountEnabled";
 
 export default function MainPage({navigation}) {
 
-  useEffect(() => {checkUserExistence()}, [])
+  useEffect(() => {
+    CheckAccountEnabled(navigation);
+    checkUserExistence();
+  }, [])
 
   const checkUserExistence = async () => {
     try {

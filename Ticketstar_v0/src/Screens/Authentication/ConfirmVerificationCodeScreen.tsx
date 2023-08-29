@@ -5,6 +5,7 @@ import Logo from './Logo';
 import InputField from './InputField';
 import CustomButton from './CustomButton';
 import FinePrintButton from './FinePrintButton';
+import { MainColour } from "../../OverallStyles";
 
 function ConfirmVerificationCodeScreen({navigation, route}) {
   const [verificationCode, setVerificationCode] = useState('');
@@ -66,7 +67,7 @@ function ConfirmVerificationCodeScreen({navigation, route}) {
         <Logo />
 
         {loading ? (
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color={MainColour} />
         ) : (
           <>
             <View
@@ -89,6 +90,7 @@ function ConfirmVerificationCodeScreen({navigation, route}) {
                 text={verificationCode}
                 setText={setVerificationCode}
                 onValidChange={setIsVerificartionCodeInputValid}
+                type={'numeric'}
               />
             </View>
 

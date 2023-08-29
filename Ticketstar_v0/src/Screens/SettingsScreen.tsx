@@ -12,6 +12,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useNavigation} from '@react-navigation/native';
 import {API_URL_LOCAL, API_URL_PROD} from '@env';
 import { handleTransfer } from "../TicketTransfer";
+import { MainColour } from "../OverallStyles";
+import { SignOut } from "../SignOut";
 
 function SettingsScreen() {
   const navigation = useNavigation();
@@ -49,20 +51,6 @@ function SettingsScreen() {
   useEffect(() => {
     loadDetails();
   });
-
-  const signOut = async () => {
-    await AsyncStorage.multiRemove([
-      'user_id',
-      'first_name',
-      'surname',
-      'email',
-      'email_verified',
-      'UserListings',
-      'UserPurchases',
-    ]);
-
-    navigation.navigate('MainPage');
-  };
 
   const becomeSeller = async () => {
 
@@ -130,7 +118,7 @@ function SettingsScreen() {
       style={styles.container}
       refreshControl={
         // include the RefreshControl component in ScrollView
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={'black'}/>
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={MainColour}/>
       }>
       <View style={styles.settingsItem}>
         <Text style={styles.detailHeader}>First Name</Text>
@@ -159,7 +147,7 @@ function SettingsScreen() {
             onPress={() =>
               Alert.alert(
                 'Creating a Stripe Account',
-                'We use Stripe to take payments from buyer, and payout to sellers. This is a one time process. We have prefilled most of the required information',
+                'We use Stripe to take payments from buyers, and payout to sellers. This is a one time process. We have prefilled most of the required information',
               )
             }>
             <Text style={styles.infoButtonText}>?</Text>
@@ -179,7 +167,7 @@ function SettingsScreen() {
         <TouchableOpacity
           style={[styles.button, {backgroundColor: '#43a047'}]}
           onPress={() =>
-            Linking.openURL('https://ticketstar.uk/contact')
+            Linking.openURL('https://ticketstar.uk/contact-us')
           }>
           <Text
            style={styles.signOutText}
@@ -190,7 +178,7 @@ function SettingsScreen() {
         <TouchableOpacity
           style={[styles.button, {backgroundColor: '#43a047'}]}
           onPress={() =>
-            Linking.openURL('https://ticketstar.uk')
+            Linking.openURL('https://ticketstar.uk/help')
           }>
           <Text
             style={styles.signOutText}
@@ -201,7 +189,9 @@ function SettingsScreen() {
       </View>
 
       <View style={styles.settingsItem}>
-        <TouchableOpacity style={styles.button} onPress={signOut}>
+        <TouchableOpacity style={styles.button} onPress={() => {
+          SignOut(navigation);
+        }}>
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>

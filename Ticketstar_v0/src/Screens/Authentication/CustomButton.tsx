@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MainColour } from "../../OverallStyles";
 
 export default function CustomButton({handlePress, title, disabled}) {
@@ -8,7 +8,7 @@ export default function CustomButton({handlePress, title, disabled}) {
       position: 'absolute', // This makes the bottom, left, right, top attributes work
       bottom: '11%', // This positions the button 20% from the bottom of the screen
       alignSelf: 'center', // This centers the button horizontally
-      backgroundColor: MainColour,
+      backgroundColor: disabled ? 'lightgrey': MainColour,
       padding: 12,
       borderRadius: 8,
       alignItems: 'center',

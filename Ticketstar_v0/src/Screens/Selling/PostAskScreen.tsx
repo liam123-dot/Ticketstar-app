@@ -12,6 +12,7 @@ import {API_URL_PROD, API_URL_LOCAL} from '@env';
 import { BackButton } from "../BackButton";
 import { loadListings } from "../../Dataloaders";
 import {fetchPricing} from "../../FetchPricing";
+import { MainColour } from "../../OverallStyles";
 
 function PostAskScreen({navigation, route}) {
   const {
@@ -78,6 +79,11 @@ function PostAskScreen({navigation, route}) {
     };
   }, [countdownActive]);
 
+  function myRound(value: number, decimalPlaces: number = 2): number {
+    const offset = Math.pow(10, -decimalPlaces) / 2;
+    return parseFloat((value + offset).toFixed(decimalPlaces));
+  }
+
   const updateFees = (price) => {
     if (price === '£' || price.length === 0){
       setStripeFee(0);
@@ -85,10 +91,12 @@ function PostAskScreen({navigation, route}) {
       setSellerReceives(0);
     } else {
       const numericPrice = Number(price.slice(1));
-      let platform_fee = Number((platformFixedFee / 100 + numericPrice * platformVariableFee).toFixed(2));
-      let stripe_fee = Number((stripeFixedFee / 100 + numericPrice * stripeVariableFee).toFixed(2));
+      let platform_fee = myRound(platformFixedFee / 100.0 + numericPrice * platformVariableFee);
+      let stripe_fee = myRound(stripeFixedFee / 100 + numericPrice * stripeVariableFee);
 
-      let seller_receives = numericPrice - (platform_fee + stripe_fee);
+      console.log(numericPrice, stripe_fee);
+
+      let seller_receives = myRound(numericPrice - (platform_fee + stripe_fee), 2);
 
       if (seller_receives < 1){
         setInvalidPrice(true);
@@ -96,7 +104,7 @@ function PostAskScreen({navigation, route}) {
         setInvalidPrice(false);
       }
 
-      setPlatformFee(platform_fee.toFixed(2));
+      setPlatformFee(platform_fee);
       setStripeFee(stripe_fee.toFixed(2));
       setSellerReceives(seller_receives.toFixed(2));
     }
@@ -213,7 +221,6 @@ function PostAskScreen({navigation, route}) {
   const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
 
   const verifyTransferUrl = async () => {
-    console.log(fixr_ticket_id, fixr_event_id)
     setLoading(true);
     const response = await fetch(apiUrl + '/transfers/verifyurl', {
       method: 'POST',
@@ -262,10 +269,15 @@ function PostAskScreen({navigation, route}) {
 
     if (response.ok) {
       Alert.alert('Listing successfully posted', 'You can easily reclaim your ticket from the listings page if you no longer wish to sell it.');
+      const refresher = async () => {
+
+        await AsyncStorage.setItem('refreshListings', 'true');
+
+      };
+
+      refresher();
       navigation.goBack();
-      navigation.navigate('MyListings', {
-        requestRefresh: true,
-      });
+      navigation.navigate('MyListings');
     } else {
       try {
         const data = await response.json();
@@ -313,7 +325,7 @@ function PostAskScreen({navigation, route}) {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <ScrollView contentContainerStyle={styles.container}
       refreshControl={
-        <RefreshControl refreshing={loading} tintColor={'black'}/>
+        <RefreshControl refreshing={loading} tintColor={MainColour}/>
       }>
 
         <BackButton navigation={navigation} goBack={!ticketVerified} params={ticket_verified ? 'MyListings': ''} styles={{left: 5}} onPress={() => navigation.goBack()}/>

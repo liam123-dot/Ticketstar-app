@@ -17,6 +17,7 @@ import { loadListings, loadPurchases } from "../../Dataloaders";
 import { BackButton } from "../BackButton";
 import { CheckSellerVerified } from "../../CheckSellerVerified";
 import { RecordAppOpen } from "../../Metrics";
+import { MainColour } from "../../OverallStyles";
 
 const SignInScreen = () => {
   const navigation = useNavigation();
@@ -92,11 +93,18 @@ const SignInScreen = () => {
           navigation.navigate('ConfirmVerificationCode', {
             email: emailInput,
           });
+        } else if (result.error === 'NotAuthorizedException'){
+          if (result.message === 'User is disabled.') {
+            Alert.alert('Your account has been disabled');
+          } else {
+            Alert.alert(result.message);
+          }
+        } else {
+          Alert.alert(
+            'Error',
+            result.message || 'An error occurred during sign-in',
+          );
         }
-        Alert.alert(
-          'Error',
-          result.message || 'An error occurred during sign-in',
-        );
       }
     } catch (error) {
       Alert.alert('Error', 'An error occurred while signing in');
@@ -128,7 +136,7 @@ const SignInScreen = () => {
         <Logo />
 
         {loading ? (
-          <ActivityIndicator size="large" color="#0000ff" />
+          <ActivityIndicator size="large" color={MainColour} />
         ) : (
           <>
             <View
